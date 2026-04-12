@@ -8,6 +8,10 @@ else()
     set(TARGET_Z80 FALSE)
 endif()
 
+if(NOT TARGET_Z80)
+    add_compile_options(-Wall -Wextra -Wpedantic -Werror)
+endif()
+
 add_subdirectory(src)
 
 if(NOT TARGET_Z80)

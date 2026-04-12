@@ -2,6 +2,7 @@ set(BIOS_LOGIC_SOURCES
     iobyte.c
     sector.c
     dpb.c
+    config.c
 )
 
 if(TARGET_Z80)

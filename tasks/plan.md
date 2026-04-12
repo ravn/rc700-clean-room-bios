@@ -77,7 +77,7 @@ Plain `assert()` based tests, no external framework. Each test file has `main()`
 ### Phase 2 — More pure logic modules
 4. [x] `sector.c` + `test_sector.c` — sector translation tables
 5. [x] `dpb.c` + `test_dpb.c` — DPB/FSPA/FDF structures, format dispatch
-6. [ ] `config.c` + `test_config.c` — CONFI block parsing, baud rate tables
+6. [x] `config.c` + `test_config.c` — CONFI block parsing, baud rate tables
 
 ### Phase 3 — Stateful logic
 7. [ ] `console.c` + `test_console.c` — cursor, control chars, scrolling
