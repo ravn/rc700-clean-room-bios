@@ -223,10 +223,17 @@ void bios_boot(void) {
     keyboard_init(&keyboard);
     floppy_init(&floppy_state);
 
-    /* For now, skip IM2 setup — rely on PROM's interrupt configuration.
-     * The PROM has IM2 active with its own vector table (at page 0x73
-     * based on the I=0x73 value set in the PROM code).
-     * Just enable interrupts so the PROM's display refresh ISR keeps running. */
+    /* Set up IM2 interrupt vectors using z88dk im2 library */
+#ifdef BIOS_WITH_CRT0
+    z80_setup_im2();
+#endif
+
+    /* Sync display ISR state with console */
+    display_isr_state.display_buf = console_state.display;
+    display_isr_state.cursor_dirty = 1;
+    display_isr_state.curx = 0;
+    display_isr_state.cursy = 0;
+
     hal_ei();
 
     /* Display signon message (Section 13.1 step 3) */

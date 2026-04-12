@@ -130,9 +130,9 @@ def make_loader_stub(bios_size):
       ED B0        LDIR
       C3 00 DA     JP 0xDA00
     """
+    # Simple relocator: DI, copy, JP 0xDA00
     STUB_LEN = 15
     src_addr = 0x0280 + STUB_LEN
-
     stub = bytearray([
         0xF3,                                       # DI
         0x21, src_addr & 0xFF, (src_addr >> 8) & 0xFF,  # LD HL, src
