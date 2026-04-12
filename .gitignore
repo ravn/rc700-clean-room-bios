@@ -10,6 +10,9 @@ CMakeFiles/
 cmake-build-*/
 compile_commands.json
 
+# MAME auto-generated config
+/cfg/
+
 # OS files
 .DS_Store
 

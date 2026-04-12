@@ -52,10 +52,44 @@ _jtvars:
     ; ---- IM2 setup ----
     PUBLIC _z80_setup_im2
 _z80_setup_im2:
+    ; Build vector table at 0xF600
+    ld  hl, _isr_vector_data
+    ld  de, 0xF600
+    ld  bc, 36             ; 18 entries x 2 bytes
+    ldir
+
+    ; Set I register and enable IM2
     ld  a, 0xF6
     ld  i, a
     im  2
     ret
+
+    ; ---- ISR Vector Table Data (18 entries x 2 bytes) ----
+    ; C ISR handlers use __interrupt keyword (SDCC generates RETI + reg saves).
+_isr_vector_data:
+    DEFW _isr_dummy              ;  0: CTC Ch.0 (baud rate)
+    DEFW _isr_dummy              ;  1: CTC Ch.1 (baud rate)
+    DEFW _isr_display_refresh    ;  2: CTC Ch.2 (display refresh)
+    DEFW _isr_floppy_complete    ;  3: CTC Ch.3 (floppy complete)
+    DEFW _isr_dummy              ;  4: CTC2 Ch.0 (hard disk)
+    DEFW _isr_dummy              ;  5: CTC2 Ch.1
+    DEFW _isr_dummy              ;  6: CTC2 Ch.2
+    DEFW _isr_dummy              ;  7: CTC2 Ch.3
+    DEFW _isr_sio_b_tx           ;  8: SIO Ch.B TX
+    DEFW _isr_sio_b_ext          ;  9: SIO Ch.B EXT
+    DEFW _isr_sio_b_rx           ; 10: SIO Ch.B RX
+    DEFW _isr_sio_b_spec         ; 11: SIO Ch.B SPEC
+    DEFW _isr_sio_a_tx           ; 12: SIO Ch.A TX
+    DEFW _isr_sio_a_ext          ; 13: SIO Ch.A EXT
+    DEFW _isr_sio_a_rx           ; 14: SIO Ch.A RX
+    DEFW _isr_sio_a_spec         ; 15: SIO Ch.A SPEC
+    DEFW _isr_keyboard_handler   ; 16: PIO Ch.A (keyboard)
+    DEFW _isr_dummy              ; 17: PIO Ch.B (parallel)
+
+    ; ---- Dummy ISR for unused vectors ----
+_isr_dummy:
+    ei
+    reti
 
     ; ---- External references ----
     EXTERN _bios_boot
@@ -81,3 +115,16 @@ _z80_setup_im2:
     EXTERN _bios_exit
     EXTERN _bios_clock
     EXTERN _bios_hrdfmt
+
+    ; ISR C handlers (use __interrupt for RETI + register saves)
+    EXTERN _isr_display_refresh
+    EXTERN _isr_floppy_complete
+    EXTERN _isr_keyboard_handler
+    EXTERN _isr_sio_b_tx
+    EXTERN _isr_sio_b_ext
+    EXTERN _isr_sio_b_rx
+    EXTERN _isr_sio_b_spec
+    EXTERN _isr_sio_a_tx
+    EXTERN _isr_sio_a_ext
+    EXTERN _isr_sio_a_rx
+    EXTERN _isr_sio_a_spec

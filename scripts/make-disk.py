@@ -115,10 +115,46 @@ def rebuild_imd(header, tracks):
     return bytes(out)
 
 
+def make_loader_stub(bios_size):
+    """Create a Z80 relocator stub that copies BIOS to 0xDA00.
+
+    The stub is loaded at 0x0280 by the ROA375 PROM.
+    It copies bios_size bytes from (0x0280 + stub_length) to 0xDA00,
+    then jumps to 0xDA00.
+
+    Machine code (15 bytes):
+      F3           DI
+      21 xx xx     LD HL, source
+      11 00 DA     LD DE, 0xDA00
+      01 xx xx     LD BC, count
+      ED B0        LDIR
+      C3 00 DA     JP 0xDA00
+    """
+    STUB_LEN = 15
+    src_addr = 0x0280 + STUB_LEN
+
+    stub = bytearray([
+        0xF3,                                       # DI
+        0x21, src_addr & 0xFF, (src_addr >> 8) & 0xFF,  # LD HL, src
+        0x11, 0x00, 0xDA,                           # LD DE, 0xDA00
+        0x01, bios_size & 0xFF, (bios_size >> 8) & 0xFF,  # LD BC, size
+        0xED, 0xB0,                                 # LDIR
+        0xC3, 0x00, 0xDA,                           # JP 0xDA00
+    ])
+    assert len(stub) == STUB_LEN
+    return bytes(stub)
+
+
 def inject_bios(bios_data, tracks):
-    """Inject BIOS binary into track 0 sectors."""
+    """Inject loader stub + BIOS binary into track 0 sectors."""
+    # Prepend the relocator stub
+    stub = make_loader_stub(len(bios_data))
+    payload = stub + bios_data
+    print(f"  Loader stub: {len(stub)} bytes, payload: {len(payload)} bytes")
+
     bios_offset = 0
-    bios_len = len(bios_data)
+    bios_len = len(payload)
+    bios_data = payload
 
     # Find track 0 head 0 and head 1
     t0h0 = None
@@ -201,8 +237,8 @@ def main():
     # Inject BIOS
     tracks = inject_bios(bios_data, tracks)
 
-    # Update boot sector entry point to BIOS_BASE (0xDA00)
-    update_boot_sector(tracks, 0xDA00)
+    # Update boot sector entry point to loader stub (0x0280)
+    update_boot_sector(tracks, 0x0280)
 
     # Rebuild and write
     output_data = rebuild_imd(header, tracks)

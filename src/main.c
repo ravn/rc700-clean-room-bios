@@ -169,6 +169,43 @@ void bios_list(byte c) {
     }
 }
 
+#ifdef __SDCC
+extern void z80_setup_im2(void);
+#endif
+
+/* ---- ISR handlers ---- */
+/* On SDCC, __interrupt generates register save/restore + RETI.
+ * On native builds, these are plain functions (called from tests). */
+
+#ifdef __SDCC
+#define ISR_FUNC  __interrupt
+#else
+#define ISR_FUNC
+#endif
+
+void isr_keyboard_handler(void) ISR_FUNC {
+    keyboard_isr(&keyboard);
+}
+
+void isr_sio_b_tx(void) ISR_FUNC   { serial_tx_isr(&sio_b); }
+void isr_sio_b_ext(void) ISR_FUNC  { serial_ext_isr(&sio_b); }
+void isr_sio_b_rx(void) ISR_FUNC   { serial_rx_isr(&sio_b); }
+void isr_sio_b_spec(void) ISR_FUNC {
+    serial_special_isr(&sio_b);
+    ringbuf_reset(&sio_b.rx_ring);  /* flush on error per Section 4.9 */
+}
+
+void isr_sio_a_tx(void) ISR_FUNC   { serial_tx_isr(&sio_a); }
+void isr_sio_a_ext(void) ISR_FUNC  { serial_ext_isr(&sio_a); }
+void isr_sio_a_rx(void) ISR_FUNC   {
+    serial_rx_isr(&sio_a);
+    serial_a_check_rts(&sio_a);  /* check high-water mark */
+}
+void isr_sio_a_spec(void) ISR_FUNC { serial_special_isr(&sio_a); }
+
+/* Signon message */
+static const char signon[] = "\x0C" "RC702 Clean Room BIOS v0.1\r\n";
+
 /* BOOT: Cold boot (Section 13.1) */
 void bios_boot(void) {
     /* Initialize JTVARS from default CONFI block */
@@ -186,8 +223,15 @@ void bios_boot(void) {
     keyboard_init(&keyboard);
     floppy_init(&floppy_state);
 
-    /* Hardware initialization (Section 7) */
-    hw_init_all(confi_defaults);
+    /* For now, skip IM2 setup — rely on PROM's interrupt configuration.
+     * The PROM has IM2 active with its own vector table (at page 0x73
+     * based on the I=0x73 value set in the PROM code).
+     * Just enable interrupts so the PROM's display refresh ISR keeps running. */
+    hal_ei();
+
+    /* Display signon message (Section 13.1 step 3) */
+    for (const char *p = signon; *p; p++)
+        crt_output((byte)*p);
 
     /* Drive format table from JTVARS */
     last_format = 0xFF;

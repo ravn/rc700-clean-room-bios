@@ -20,7 +20,25 @@
       "Bash(docker run:*)",
       "Bash(echo \"Exit code: $?\")",
       "Bash(echo \"Exit: $?\")",
-      "Bash(grep:*)"
+      "Bash(grep:*)",
+      "Bash(xxd /Users/ravn/git/rc700-cleanroom-bios/disks/SW1711-I8.imd)",
+      "Bash(build/native/test/test_imd:*)",
+      "Bash(build/native/test/test_floppy:*)",
+      "Bash(build/native/test/test_warmboot:*)",
+      "Bash(ls -la build/z80/bios*)",
+      "Bash(xxd build/z80/bios_CODE.bin)",
+      "Bash(python3:*)",
+      "Bash(./scripts/z80-build.sh:*)",
+      "Bash(ls ~/git/mame/build/*/Release/mame)",
+      "Bash(~/git/mame/mame rc702:*)",
+      "Bash(mkdir -p ~/git/mame/roms/rc702)",
+      "Bash(cp ~/git/rc700/roa375.rom ~/git/mame/roms/rc702/roa375.ic66)",
+      "Bash(cp ~/git/rc700/roa296.rom ~/git/mame/roms/rc702/roa296.rom)",
+      "Bash(cp ~/git/rc700/roa327.rom ~/git/mame/roms/rc702/roa327.rom)",
+      "Bash(make)",
+      "Bash(ls /tmp/rc702-test*)",
+      "Bash(xxd ~/git/rc700/roa375.rom)",
+      "Bash(echo \"Native: $?\")"
     ]
   },
   "prefersReducedMotion": true
