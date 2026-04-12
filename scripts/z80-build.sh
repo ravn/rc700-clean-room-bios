@@ -4,11 +4,22 @@ set -e
 cd "$(dirname "$0")/.."
 mkdir -p build/z80
 
-SOURCES="src/iobyte.c src/sector.c src/dpb.c src/config.c src/deblock.c src/console.c src/chartab.c src/ringbuf.c src/serial.c src/floppy.c src/hwinit.c src/interrupt.c src/jtvars.c src/hal_z80.c src/main.c"
+SOURCES="src/crt0.asm src/iobyte.c src/sector.c src/dpb.c src/config.c src/deblock.c src/console.c src/chartab.c src/ringbuf.c src/serial.c src/floppy.c src/hwinit.c src/interrupt.c src/jtvars.c src/hal_z80.c src/main.c"
+FLAGS="-compiler=sdcc -mz80 -Cs--std-c23 -SO3 --opt-code-size -Isrc"
 
+echo "=== BIOS binary (with crt0 at 0xDA00) ==="
 docker run --rm --platform linux/amd64 \
   -v "$(pwd)":/src -w /src \
   z88dk/z88dk \
-  sh -c "zcc +test -compiler=sdcc -mz80 -Cs--std-c23 -SO3 --opt-code-size -Isrc -m -create-app $SOURCES -o build/z80/bios_smoke"
+  sh -c "zcc +test $FLAGS --no-crt -zorg 0xDA00 -m -create-app $SOURCES -o build/z80/bios"
 
-echo "Built: $(wc -c < build/z80/bios_smoke.bin) bytes"
+echo "Built: $(wc -c < build/z80/bios_CODE.bin) bytes (CODE binary)"
+grep -E '__code_compiler_tail|__rodata_compiler_tail|__bss_compiler_head' build/z80/bios.map | head -3
+
+echo ""
+echo "=== Smoke test (ticks) ==="
+docker run --rm --platform linux/amd64 \
+  -v "$(pwd)":/src -w /src \
+  z88dk/z88dk \
+  sh -c "zcc +test $FLAGS -create-app src/iobyte.c src/sector.c src/dpb.c src/config.c src/deblock.c src/console.c src/chartab.c src/ringbuf.c src/serial.c src/floppy.c src/hwinit.c src/interrupt.c src/jtvars.c src/hal_z80.c src/main.c -o build/z80/bios_smoke && z88dk-ticks build/z80/bios_smoke.bin"
+echo "Ticks exit: $?"

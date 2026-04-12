@@ -89,6 +89,7 @@ Plain `assert()` based tests, no external framework. Each test file has `main()`
 - Switch statements: verify they produce optimal Z80 code vs if-else chains
 - GDB stub: investigate z88dk-gdb for Z80 debugging
 - IM2 consistency: verify that the interrupt vector table entries match the CTC/SIO/PIO vector base programming
+- sdcccall(1): investigate if the newer SDCC calling convention produces smaller code for our use case
 
 ### Phase 4 — HAL and Z80 target (DONE)
 10. [x] `hal_z80.c` — real Z80 I/O via SDCC inline asm

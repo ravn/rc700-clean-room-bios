@@ -1,22 +1,19 @@
 ;
 ; RC702 CP/M 2.2 BIOS — crt0 (Z80 entry point)
 ;
-; This file provides:
-;   1. The 17-entry BIOS JP table at 0xDA00
-;   2. IM2 setup (I register, interrupt mode)
-;   3. Jump to C main (bios_boot)
-;
-; The JTVARS block (22 bytes at 0xDA33) is managed in C.
-; Extended entry points at 0xDA4A are managed in C.
-;
-; Assembled with z80asm (z88dk).
+; Section ordering: CODE (jump table) → code_compiler → rodata_compiler → bss_compiler
+; BSS comes last so it doesn't consume disk space.
 ;
 
+    ; Force section ordering by declaring them in order
+    SECTION CODE
+    SECTION code_compiler
+    SECTION rodata_compiler
+    SECTION bss_compiler
+
+    ; ---- BIOS Jump Table at 0xDA00 ----
     SECTION CODE
     ORG 0xDA00
-
-; ---- BIOS Jump Table (17 entries x 3 bytes = 51 bytes) ----
-; These must be at exact offsets from BIOS_BASE.
 
     jp  _bios_boot          ; +0x00 BOOT
     jp  _bios_wboot         ; +0x03 WBOOT
@@ -36,19 +33,15 @@
     jp  _bios_listst        ; +0x2D LISTST
     jp  _bios_sectran       ; +0x30 SECTRAN
 
-; ---- JTVARS block (22 bytes at +0x33) ----
-; Space reserved here; initialized by C code (jtvars_init).
-
+    ; ---- JTVARS block (22 bytes at +0x33) ----
     PUBLIC _jtvars
 _jtvars:
-    DEFS 22                 ; 22 bytes for JTVARS
+    DEFS 22
 
-; ---- Extended entry points at +0x49 ----
-; Note: +0x33 + 22 = +0x49, not +0x4A. The spec says +0x4A.
-; We add 1 byte padding to match.
+    ; ---- Padding to +0x4A ----
+    DEFB 0
 
-    DEFB 0                  ; padding byte at +0x49
-
+    ; ---- Extended entry points at +0x4A ----
     jp  _bios_wfitr         ; +0x4A WFITR
     jp  _bios_reads         ; +0x4D READS
     jp  _bios_linsel        ; +0x50 LINSEL
@@ -56,23 +49,15 @@ _jtvars:
     jp  _bios_clock         ; +0x56 CLOCK
     jp  _bios_hrdfmt        ; +0x59 HRDFMT
 
-; ---- IM2 setup and cold boot entry ----
-; The ROM bootstrap jumps to BIOS_BASE (+0x00), which is the BOOT entry.
-; bios_boot (in C) handles everything after the JP lands.
-;
-; IM2 vector table setup must happen before any interrupts fire.
-; It is called from bios_boot via hw_init_all, but the I register
-; and IM2 instruction need Z80 assembly:
-
+    ; ---- IM2 setup ----
     PUBLIC _z80_setup_im2
 _z80_setup_im2:
-    ld  a, 0xF6             ; vector table page
+    ld  a, 0xF6
     ld  i, a
     im  2
     ret
 
-; ---- External references to C functions ----
-
+    ; ---- External references ----
     EXTERN _bios_boot
     EXTERN _bios_wboot
     EXTERN _bios_const
@@ -90,8 +75,6 @@ _z80_setup_im2:
     EXTERN _bios_write
     EXTERN _bios_listst
     EXTERN _bios_sectran
-
-; Extended entry point stubs (to be implemented)
     EXTERN _bios_wfitr
     EXTERN _bios_reads
     EXTERN _bios_linsel
