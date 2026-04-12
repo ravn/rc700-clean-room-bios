@@ -9,3 +9,4 @@
 - [Compiler findings](project_compiler_findings.md) — zcc sdcc vs sccz80, C23 support, recommended flags, verified with ticks
 - [Global vars preferred](feedback_global_vars.md) — Use globals not params for Z80 code; no reentrant code in BIOS
 - [byte/word types](feedback_byte_word_types.md) — Use byte/word from types.h, not uint8_t/uint16_t
+- [IM2 page alignment](feedback_im2_page_boundary.md) — Vector table must be at 256-byte boundary, I register = high byte

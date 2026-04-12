@@ -3,6 +3,7 @@
 #include <string.h>
 #include "hwinit.h"
 #include "config.h"
+#include "interrupt.h"
 #include "hal.h"
 
 /*
@@ -188,6 +189,83 @@ static void test_full_init_sequence(void) {
     assert(write_count == 54);
 }
 
+static void test_im2_vector_table_consistency(void) {
+    /*
+     * Verify that IM2 vector table address, I register page, device
+     * vector bases, and vector table indices are all consistent.
+     * This is a Z80 hardware requirement: the vector table MUST be
+     * at a 256-byte page boundary.
+     */
+
+    /* IVT_BASE must be page-aligned */
+    assert((IVT_BASE & 0xFF) == 0);
+
+    /* IVT_PAGE must be the high byte of IVT_BASE */
+    assert(IVT_PAGE == (IVT_BASE >> 8));
+
+    /* CTC vector base = 0x00 → vectors at offsets 0x00, 0x02, 0x04, 0x06 */
+    byte ctc_vector_base = 0x00;  /* written to CTC Ch.0 in hw_init_ctc */
+    assert(ctc_vector_base / 2 == IVT_CTC_CH0);
+    assert((ctc_vector_base + 2) / 2 == IVT_CTC_CH1);
+    assert((ctc_vector_base + 4) / 2 == IVT_CTC_CH2);
+    assert((ctc_vector_base + 6) / 2 == IVT_CTC_CH3);
+
+    /* CTC2 vector base = 0x08 → offsets 0x08, 0x0A, 0x0C, 0x0E */
+    byte ctc2_vector_base = 0x08;
+    assert(ctc2_vector_base / 2 == IVT_CTC2_CH0);
+    assert((ctc2_vector_base + 2) / 2 == IVT_CTC2_CH1);
+    assert((ctc2_vector_base + 4) / 2 == IVT_CTC2_CH2);
+    assert((ctc2_vector_base + 6) / 2 == IVT_CTC2_CH3);
+
+    /* SIO vector base = 0x10 (written to SIO-B WR2) */
+    /* SIO modifies bits 3:1 for interrupt type (Section 7.4):
+     *   TX empty=0, ext status=1, RX avail=2, special=3
+     * Channel B uses base, Channel A uses base+4 */
+    byte sio_vector_base = 0x10;
+    /* Ch.B: TX=0x10, EXT=0x12, RX=0x14, SPEC=0x16 */
+    assert(sio_vector_base / 2 == IVT_SIO_B_TX);
+    assert((sio_vector_base + 2) / 2 == IVT_SIO_B_EXT);
+    assert((sio_vector_base + 4) / 2 == IVT_SIO_B_RX);
+    assert((sio_vector_base + 6) / 2 == IVT_SIO_B_SPEC);
+    /* Ch.A: base+8 → TX=0x18, EXT=0x1A, RX=0x1C, SPEC=0x1E */
+    assert((sio_vector_base + 8) / 2 == IVT_SIO_A_TX);
+    assert((sio_vector_base + 10) / 2 == IVT_SIO_A_EXT);
+    assert((sio_vector_base + 12) / 2 == IVT_SIO_A_RX);
+    assert((sio_vector_base + 14) / 2 == IVT_SIO_A_SPEC);
+
+    /* PIO vectors: 0x20 (Ch.A), 0x22 (Ch.B) */
+    byte pio_a_vector = 0x20;
+    byte pio_b_vector = 0x22;
+    assert(pio_a_vector / 2 == IVT_PIO_A);
+    assert(pio_b_vector / 2 == IVT_PIO_B);
+
+    /* Verify PIO vectors match what hw_init_pio writes */
+    reset_capture();
+    hw_init_pio();
+    assert(writes[0].value == pio_a_vector);  /* PIO-A vector */
+    assert(writes[1].value == pio_b_vector);  /* PIO-B vector */
+
+    /* Verify CTC vector base matches what hw_init_ctc writes */
+    reset_capture();
+    hw_init_ctc(confi_defaults);
+    assert(writes[0].value == ctc_vector_base);  /* first write = vector base */
+
+    /* Verify SIO-B WR2 (vector base) matches */
+    reset_capture();
+    hw_init_sio(confi_defaults);
+    /* SIO-B byte 2 (index 11 in write sequence: 9 SIO-A + [0x18, 0x02, 0x10...]) */
+    /* SIO-A is 9 writes, then SIO-B starts. SIO-B byte 2 = WR2 value */
+    assert(writes[9 + 2].value == sio_vector_base);
+
+    /* All 18 vector table entries fit within one page */
+    assert(IVT_ENTRIES * 2 <= 256);
+
+    /* The highest vector offset used (PIO-B = 0x22) + 2 must fit in page */
+    assert(pio_b_vector + 2 <= 256);
+
+    printf("  IM2 vector table consistency: all %d entries verified\n", IVT_ENTRIES);
+}
+
 int main(void) {
     test_pio_init();
     test_ctc_init();
@@ -196,6 +274,7 @@ int main(void) {
     test_fdc_init();
     test_display_init();
     test_full_init_sequence();
+    test_im2_vector_table_consistency();
     printf("All hwinit tests passed.\n");
     return 0;
 }
