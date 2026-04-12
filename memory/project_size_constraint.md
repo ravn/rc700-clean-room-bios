@@ -11,4 +11,4 @@ The complete BIOS including configuration blocks must fit in track 0 of the disk
 
 **Why:** The ROA375 autoloader loads from track 0. Everything must fit there — no overflow to other tracks.
 
-**How to apply:** Monitor Z80 compiled binary size continuously. This applies to the cross-compiled Z80 output only — the native test build has no size restriction. Prefer compact code on the Z80 side. This constraint may drive architectural decisions (e.g., what to include in BIOS vs. load later).
+**How to apply:** Monitor Z80 code+rodata size continuously (BSS is zero-initialized in RAM and does NOT consume disk space, so it doesn't count toward the track 0 limit). This applies to the cross-compiled Z80 output only — the native test build has no size restriction. Prefer compact code on the Z80 side. This constraint may drive architectural decisions (e.g., what to include in BIOS vs. load later).

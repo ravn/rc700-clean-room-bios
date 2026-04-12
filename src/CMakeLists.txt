@@ -6,6 +6,8 @@ set(BIOS_LOGIC_SOURCES
     deblock.c
     console.c
     chartab.c
+    ringbuf.c
+    serial.c
 )
 
 if(TARGET_Z80)
