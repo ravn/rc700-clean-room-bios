@@ -21,6 +21,12 @@ target_link_libraries(test_hwinit PRIVATE bios_logic)
 target_include_directories(test_hwinit PRIVATE ${CMAKE_SOURCE_DIR}/src)
 add_test(NAME test_hwinit COMMAND test_hwinit)
 
+# Interrupt ISR test — provides its own HAL to capture port writes
+add_executable(test_interrupt test_interrupt.c)
+target_link_libraries(test_interrupt PRIVATE bios_logic)
+target_include_directories(test_interrupt PRIVATE ${CMAKE_SOURCE_DIR}/src)
+add_test(NAME test_interrupt COMMAND test_interrupt)
+
 # FDC simulator test — includes fdc_sim.c directly
 add_executable(test_fdc_sim test_fdc_sim.c fdc_sim.c hal_mock.c)
 target_link_libraries(test_fdc_sim PRIVATE bios_logic)

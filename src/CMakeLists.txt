@@ -10,6 +10,7 @@ set(BIOS_LOGIC_SOURCES
     serial.c
     floppy.c
     hwinit.c
+    interrupt.c
 )
 
 if(TARGET_Z80)
