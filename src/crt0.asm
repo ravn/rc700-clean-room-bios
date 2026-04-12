@@ -5,12 +5,17 @@
 ; BSS comes last so it doesn't consume disk space.
 ;
 
-    ; Force section ordering: all code/rodata before BSS
+    ; Force section ordering: all code/rodata/library before BSS
     SECTION CODE
     SECTION code_compiler
     SECTION code_string
+    SECTION code_l_sccz80
+    SECTION code_l_sdcc
+    SECTION code_math
+    SECTION code_error
     SECTION rodata_compiler
     SECTION bss_compiler
+    SECTION bss_error
 
     ; ---- BIOS Jump Table at 0xDA00 ----
     SECTION CODE
