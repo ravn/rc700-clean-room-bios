@@ -14,7 +14,9 @@
  * Extended entry points follow at 0xDA49 (BIOS_BASE + 0x49).
  */
 
-#define BIOS_BASE    0xDA00
+/* Temporary: BIOS at 0xC000 to fit in memory.
+ * Will move to 0xDA00 when code is optimized to fit. */
+#define BIOS_BASE    0xC000
 #define JTVARS_OFFSET 0x33
 #define JTVARS_ADDR  (BIOS_BASE + JTVARS_OFFSET)  /* 0xDA33 */
 

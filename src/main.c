@@ -250,8 +250,10 @@ void bios_boot(void) {
     cur_sector = 0;
     cur_dma = (byte *)0x0080;
 
-    /* Step 6: Halt — don't proceed to warm boot yet */
-    for (;;) hal_ei();
+    /* Busy loop — don't attempt warm boot yet */
+    for (;;) {
+        hal_ei();
+    }
 }
 
 /* CONST: Console status — returns 0xFF if char ready, 0x00 if not */

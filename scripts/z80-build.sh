@@ -11,7 +11,7 @@ echo "=== BIOS binary (with crt0 at 0xDA00) ==="
 docker run --rm --platform linux/amd64 \
   -v "$(pwd)":/src -w /src \
   z88dk/z88dk \
-  sh -c "zcc +test $FLAGS -DBIOS_WITH_CRT0 --no-crt -zorg 0xDA00 -m -create-app $SOURCES -o build/z80/bios"
+  sh -c "zcc +test $FLAGS -DBIOS_WITH_CRT0 --no-crt -zorg 0xC000 -m -create-app $SOURCES -o build/z80/bios"
 
 echo "Built: $(wc -c < build/z80/bios_CODE.bin) bytes (CODE binary)"
 grep -E '__code_compiler_tail|__rodata_compiler_tail|__bss_compiler_head' build/z80/bios.map | head -3

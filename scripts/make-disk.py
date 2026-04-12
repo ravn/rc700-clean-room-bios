@@ -116,24 +116,24 @@ def rebuild_imd(header, tracks):
 
 
 def make_loader_stub(bios_size):
-    """Create a Z80 relocator stub that copies BIOS to 0xDA00.
+    """Create a Z80 relocator stub that copies BIOS to 0xC000.
 
     The stub is loaded at 0x0280 by the ROA375 PROM.
-    It copies bios_size bytes from (0x0280 + stub_length) to 0xDA00,
-    then jumps to 0xDA00.
+    It copies bios_size bytes from (0x0280 + stub_length) to 0xC000,
+    then jumps to 0xC000.
 
     Machine code (15 bytes):
       F3           DI
       21 xx xx     LD HL, source
-      11 00 DA     LD DE, 0xDA00
+      11 00 DA     LD DE, 0xC000
       01 xx xx     LD BC, count
       ED B0        LDIR
-      C3 00 DA     JP 0xDA00
+      C3 00 DA     JP 0xC000
     """
     # Two-stage loader:
-    # Stage 1 (in loader): copy head 0 portion to 0xDA00
-    # Stage 2 (in loader): read head 1 via FDC+DMA, append at 0xDA00 + head0_size
-    # Stage 3: JP 0xDA00
+    # Stage 1 (in loader): copy head 0 portion to 0xC000
+    # Stage 2 (in loader): read head 1 via FDC+DMA, append at 0xC000 + head0_size
+    # Stage 3: JP 0xC000
     #
     # Head 0 data available: sectors 6-26 = 2688 bytes
     # Loader code takes ~110 bytes, leaving ~2578 for BIOS part 1
@@ -151,12 +151,12 @@ def make_loader_stub(bios_size):
     # DI
     code.append(0xF3)
 
-    # Phase 1: LDIR head 0 data to 0xDA00
+    # Phase 1: LDIR head 0 data to 0xC000
     # LD HL, bios_data_start  (patched below)
     p_ld_hl_src = len(code)
     code.extend([0x21, 0x00, 0x00])  # placeholder
-    # LD DE, 0xDA00
-    code.extend([0x11, 0x00, 0xDA])
+    # LD DE, 0xC000
+    code.extend([0x11, 0x00, 0xC0])
     # LD BC, head0_data_size  (patched below)
     p_ld_bc_size = len(code)
     code.extend([0x01, 0x00, 0x00])  # placeholder
@@ -164,7 +164,7 @@ def make_loader_stub(bios_size):
     code.extend([0xED, 0xB0])
 
     # Phase 2: Read head 1 sectors via FDC
-    # LD HL, dest = 0xDA00 + head0_data_size  (patched below)
+    # LD HL, dest = 0xC000 + head0_data_size  (patched below)
     p_ld_hl_dest = len(code)
     code.extend([0x21, 0x00, 0x00])  # placeholder
     # LD C, 1 (starting sector)
@@ -263,8 +263,8 @@ def make_loader_stub(bios_size):
     # Set stack pointer for BIOS (Section 13.1: SP = 0xF500)
     code.extend([0x31, 0x00, 0xF5])  # LD SP, 0xF500
 
-    # JP 0xDA00
-    code.extend([0xC3, 0x00, 0xDA])
+    # JP 0xC000
+    code.extend([0xC3, 0x00, 0xC0])
 
     # -- fdc_out subroutine --
     fdc_out_addr = 0x0280 + len(code)
@@ -302,7 +302,7 @@ def make_loader_stub(bios_size):
     loader_size = len(code)
     head0_data_size = min(bios_size, LOADER_MAX - loader_size)
     bios_data_start = 0x0280 + loader_size
-    dest_for_head1 = 0xDA00 + head0_data_size
+    dest_for_head1 = 0xC000 + head0_data_size
 
     # Patch LD HL, bios_data_start
     code[p_ld_hl_src + 1] = bios_data_start & 0xFF
@@ -411,7 +411,7 @@ def main():
     tracks = inject_bios(bios_data, tracks)
 
     # Update boot sector entry point to loader stub (0x0280)
-    update_boot_sector(tracks, 0x0280)
+    update_boot_sector(tracks, 0x0280)  # loader stub address
 
     # Rebuild and write
     output_data = rebuild_imd(header, tracks)

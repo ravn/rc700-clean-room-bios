@@ -5,15 +5,16 @@
 ; BSS comes last so it doesn't consume disk space.
 ;
 
-    ; Force section ordering by declaring them in order
+    ; Force section ordering: all code/rodata before BSS
     SECTION CODE
     SECTION code_compiler
+    SECTION code_string
     SECTION rodata_compiler
     SECTION bss_compiler
 
     ; ---- BIOS Jump Table at 0xDA00 ----
     SECTION CODE
-    ORG 0xDA00
+    ORG 0xC000      ; temporary - will be 0xDA00 when code is optimized
 
     jp  _bios_boot          ; +0x00 BOOT
     jp  _bios_wboot         ; +0x03 WBOOT
