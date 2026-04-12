@@ -5,3 +5,4 @@
 - [GitHub repo](reference_github_repo.md) — https://github.com/ravn/rc700-clean-room-bios
 - [Size constraint](project_size_constraint.md) — Z80 BIOS + config must fit in track 0 (roa375 autoloader)
 - [Commit workflow](feedback_commit_workflow.md) — Investigate problems, create tasks/issues, summarize, then commit
+- [Plans in project](feedback_plans_in_project.md) — Always save plans to tasks/ in the repo, not ~/.claude/plans/
