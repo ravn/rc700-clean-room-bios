@@ -214,24 +214,95 @@ static void test_warmboot_loads_ccp_bdos(void) {
 }
 
 static void test_ccp_starts_with_code(void) {
-    /* The CCP typically starts with executable code, not zeros or 0xE5 fill */
     byte first = z80_mem[CCP_BASE];
     printf("  CCP first byte: 0x%02X\n", first);
-    /* Should not be empty/fill */
     assert(first != 0x00);
     assert(first != 0xE5);
 }
 
 static void test_bdos_present(void) {
-    /* BDOS starts at CCP_BASE + 0x0806 (standard CP/M 2.2 offset) or
-     * CCP_BASE + 0x1080 for some configurations. Check for code presence
-     * in the BDOS area. */
     int bdos_nonzero = 0;
     for (int i = 0x800; i < CPML; i++) {
         if (z80_mem[CCP_BASE + i] != 0) bdos_nonzero++;
     }
     printf("  BDOS area non-zero bytes: %d\n", bdos_nonzero);
     assert(bdos_nonzero > 500);
+}
+
+static void test_bytes_match_disk_image(void) {
+    /*
+     * Verify every byte loaded into memory matches the disk image exactly.
+     *
+     * The warm boot reads CP/M logical sectors 0..NSECTS-1 from track 1.
+     * Format: 8" DD MFM, 512 B/S, 15 sectors per side.
+     * The deblocking layer groups 4 CP/M records (secmsk=3) into one
+     * 512-byte physical sector. host_sec = seksec >> secshf.
+     *
+     * The physical sector number comes from sector translation (tran8).
+     * Host sectors 0..14 → head 0, 15..29 → head 1 (EOT=15).
+     */
+    int mismatches = 0;
+    int checked = 0;
+
+    /* For each CP/M record loaded, compute which physical sector and
+     * offset it came from, then compare against the IMD source. */
+    for (int rec = 0; rec < NSECTS; rec++) {
+        /* Which track? 120 CP/M SPT for this format */
+        int cpm_track = 1 + rec / 120;
+        int cpm_sec_in_track = rec % 120;
+
+        /* Host sector = cpm_sec >> secshf (should be >>2 for 4 records/sector) */
+        int host_sec = cpm_sec_in_track >> cur_fspa->sector_shift;
+        int rec_offset = cpm_sec_in_track & cur_fspa->sector_mask;
+
+        /* Head selection via EOT */
+        int head = 0;
+        int xlat_sec = host_sec;
+        if (host_sec >= cur_fdf->eot) {
+            head = 1;
+            xlat_sec = host_sec - cur_fdf->eot;
+        }
+
+        /* Physical sector from translation table */
+        byte phys_sec = sector_translate(cur_fspa->tran_table,
+                                         cur_fspa->tran_size,
+                                         (byte)xlat_sec);
+        if (phys_sec == 0) {
+            printf("  rec %d: translation failed for host_sec=%d xlat=%d\n",
+                   rec, host_sec, xlat_sec);
+            mismatches++;
+            continue;
+        }
+
+        /* Get source data from IMD */
+        byte *src = imd_get_sector(&disk, cpm_track, head, phys_sec);
+        if (!src) {
+            printf("  rec %d: IMD sector not found C=%d H=%d S=%d\n",
+                   rec, cpm_track, head, phys_sec);
+            mismatches++;
+            continue;
+        }
+
+        /* Compare 128-byte record */
+        byte *loaded = &z80_mem[CCP_BASE + rec * 128];
+        int offset_in_sector = rec_offset * 128;
+
+        if (memcmp(loaded, &src[offset_in_sector], 128) != 0) {
+            printf("  rec %d: MISMATCH at C=%d H=%d S=%d offset=%d\n",
+                   rec, cpm_track, head, phys_sec, offset_in_sector);
+            printf("    loaded: %02X %02X %02X %02X ...\n",
+                   loaded[0], loaded[1], loaded[2], loaded[3]);
+            printf("    expect: %02X %02X %02X %02X ...\n",
+                   src[offset_in_sector], src[offset_in_sector+1],
+                   src[offset_in_sector+2], src[offset_in_sector+3]);
+            mismatches++;
+        }
+        checked++;
+    }
+
+    printf("  Byte-for-byte verification: %d records checked, %d mismatches\n",
+           checked, mismatches);
+    assert(mismatches == 0);
 }
 
 int main(void) {
@@ -250,6 +321,7 @@ int main(void) {
     test_warmboot_loads_ccp_bdos();
     test_ccp_starts_with_code();
     test_bdos_present();
+    test_bytes_match_disk_image();
 
     printf("All warmboot tests passed.\n");
     return 0;
