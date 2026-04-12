@@ -4,12 +4,12 @@
 #include "deblock.h"
 
 /* Mock disk storage: 4 tracks x 16 sectors x 512 bytes */
-static uint8_t mock_disk[4][16][512];
+static byte mock_disk[4][16][512];
 static int read_count;
 static int write_count;
 
-static int mock_read(uint8_t disk, uint16_t track, uint8_t sector,
-                     uint8_t *buf) {
+static int mock_read(byte disk, word track, byte sector,
+                     byte *buf) {
     (void)disk;
     read_count++;
     if (track >= 4 || sector >= 16) return 1;
@@ -17,8 +17,8 @@ static int mock_read(uint8_t disk, uint16_t track, uint8_t sector,
     return 0;
 }
 
-static int mock_write(uint8_t disk, uint16_t track, uint8_t sector,
-                      const uint8_t *buf) {
+static int mock_write(byte disk, word track, byte sector,
+                      const byte *buf) {
     (void)disk;
     write_count++;
     if (track >= 4 || sector >= 16) return 1;
@@ -34,13 +34,13 @@ static void reset_mock(void) {
 
 static void test_read_basic(void) {
     deblock_t db;
-    uint8_t dma[128];
+    byte dma[128];
     reset_mock();
     deblock_init(&db, mock_read, mock_write);
 
     /* Pre-fill physical sector with known pattern */
     for (int i = 0; i < 512; i++)
-        mock_disk[0][0][i] = (uint8_t)i;
+        mock_disk[0][0][i] = (byte)i;
 
     /* Setup: 512-byte physical sectors, mask=3, shift=3 */
     db.secmsk = 3;
@@ -54,19 +54,19 @@ static void test_read_basic(void) {
     assert(read_count == 1);
     /* First 128 bytes of physical sector */
     for (int i = 0; i < 128; i++)
-        assert(dma[i] == (uint8_t)i);
+        assert(dma[i] == (byte)i);
 
     /* Read second record from same physical sector — no disk read */
     db.seksec = 1;
     assert(deblock_read(&db) == 0);
     assert(read_count == 1);  /* still 1, cached */
     for (int i = 0; i < 128; i++)
-        assert(dma[i] == (uint8_t)(i + 128));
+        assert(dma[i] == (byte)(i + 128));
 }
 
 static void test_write_deferred(void) {
     deblock_t db;
-    uint8_t dma[128];
+    byte dma[128];
     reset_mock();
     deblock_init(&db, mock_read, mock_write);
 
@@ -91,7 +91,7 @@ static void test_write_deferred(void) {
 
 static void test_write_directory_immediate(void) {
     deblock_t db;
-    uint8_t dma[128];
+    byte dma[128];
     reset_mock();
     deblock_init(&db, mock_read, mock_write);
 
@@ -109,7 +109,7 @@ static void test_write_directory_immediate(void) {
 
 static void test_write_unalloc_skips_preread(void) {
     deblock_t db;
-    uint8_t dma[128];
+    byte dma[128];
     reset_mock();
     deblock_init(&db, mock_read, mock_write);
 
@@ -133,7 +133,7 @@ static void test_write_unalloc_skips_preread(void) {
 
 static void test_sector_change_flushes(void) {
     deblock_t db;
-    uint8_t dma[128];
+    byte dma[128];
     reset_mock();
     deblock_init(&db, mock_read, mock_write);
 
@@ -156,7 +156,7 @@ static void test_sector_change_flushes(void) {
 
 static void test_256_byte_sectors(void) {
     deblock_t db;
-    uint8_t dma[128];
+    byte dma[128];
     reset_mock();
     deblock_init(&db, mock_read, mock_write);
 
@@ -166,7 +166,7 @@ static void test_256_byte_sectors(void) {
 
     /* Fill physical sector with pattern */
     for (int i = 0; i < 256; i++)
-        mock_disk[0][0][i] = (uint8_t)(i ^ 0x55);
+        mock_disk[0][0][i] = (byte)(i ^ 0x55);
 
     db.sekdsk = 0;
     db.sektrk = 0;
@@ -175,13 +175,13 @@ static void test_256_byte_sectors(void) {
 
     assert(deblock_read(&db) == 0);
     for (int i = 0; i < 128; i++)
-        assert(dma[i] == (uint8_t)(i ^ 0x55));
+        assert(dma[i] == (byte)(i ^ 0x55));
 
     /* Second record */
     db.seksec = 1;
     assert(deblock_read(&db) == 0);
     for (int i = 0; i < 128; i++)
-        assert(dma[i] == (uint8_t)((i + 128) ^ 0x55));
+        assert(dma[i] == (byte)((i + 128) ^ 0x55));
 }
 
 int main(void) {

@@ -15,7 +15,12 @@
       "Bash(cmake:*)",
       "Bash(export PATH=\"/Applications/CLion.app/Contents/bin/cmake/mac/aarch64/bin:$PATH\")",
       "Bash(xcode-select -p)",
-      "Bash(ctest --preset native)"
+      "Bash(ctest --preset native)",
+      "Bash(docker pull:*)",
+      "Bash(docker run:*)",
+      "Bash(echo \"Exit code: $?\")",
+      "Bash(echo \"Exit: $?\")",
+      "Bash(grep:*)"
     ]
   },
   "prefersReducedMotion": true

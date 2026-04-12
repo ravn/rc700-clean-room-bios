@@ -1,7 +1,7 @@
 #ifndef CONSOLE_H
 #define CONSOLE_H
 
-#include <stdint.h>
+#include "types.h"
 
 /*
  * Console display logic — cursor tracking, control character dispatch,
@@ -34,24 +34,24 @@
 /* Console state */
 typedef struct {
     /* Display buffer (logical, not memory-mapped on native) */
-    uint8_t display[SCREEN_SIZE];
+    byte display[SCREEN_SIZE];
 
     /* Cursor position */
-    uint8_t  curx;       /* column 0..79 */
-    uint8_t  cursy;      /* row 0..24 */
-    uint16_t cury;       /* row offset = cursy * 80 */
+    byte  curx;       /* column 0..79 */
+    byte  cursy;      /* row 0..24 */
+    word cury;       /* row offset = cursy * 80 */
 
     /* XY escape state machine */
-    uint8_t  xflg;       /* XY_STATE_NORMAL/BYTE1/BYTE2 */
-    uint8_t  adr0;       /* first coordinate saved between bytes */
-    uint8_t  adrmod;     /* 0=XY (col,row), 1=YX (row,col) */
+    byte  xflg;       /* XY_STATE_NORMAL/BYTE1/BYTE2 */
+    byte  adr0;       /* first coordinate saved between bytes */
+    byte  adrmod;     /* 0=XY (col,row), 1=YX (row,col) */
 
     /* Background mode */
-    uint8_t  bg_flag;    /* BG_OFF, BG_FOREGROUND, BG_BACKGROUND */
-    uint8_t  bgmap[BGMAP_SIZE];
+    byte  bg_flag;    /* BG_OFF, BG_FOREGROUND, BG_BACKGROUND */
+    byte  bgmap[BGMAP_SIZE];
 
     /* Cursor dirty flag (for deferred 8275 update) */
-    uint8_t  cursor_dirty;
+    byte  cursor_dirty;
 } console_t;
 
 /* Initialize console state: clear screen, home cursor */
@@ -59,7 +59,7 @@ void console_init(console_t *con);
 
 /* Process a character for CRT display output.
  * Handles control chars, XY escapes, and printable chars. */
-void console_putchar(console_t *con, uint8_t ch);
+void console_putchar(console_t *con, byte ch);
 
 /* Individual control character operations (also used internally) */
 void console_clear_screen(console_t *con);

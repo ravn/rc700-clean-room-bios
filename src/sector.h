@@ -1,7 +1,7 @@
 #ifndef SECTOR_H
 #define SECTOR_H
 
-#include <stdint.h>
+#include "types.h"
 
 /*
  * Sector translation tables.
@@ -15,14 +15,14 @@
 #define TRAN16_SIZE   9  /* 5.25" DD MFM 512 B/S, skew 2 */
 #define TRAN24_SIZE  26  /* 8" DD MFM 256 B/S, identity */
 
-extern const uint8_t tran0[TRAN0_SIZE];
-extern const uint8_t tran8[TRAN8_SIZE];
-extern const uint8_t tran16[TRAN16_SIZE];
-extern const uint8_t tran24[TRAN24_SIZE];
+extern const byte tran0[TRAN0_SIZE];
+extern const byte tran8[TRAN8_SIZE];
+extern const byte tran16[TRAN16_SIZE];
+extern const byte tran24[TRAN24_SIZE];
 
 /* Translate logical sector to physical sector using a translation table.
  * logical is 0-based index into the table.
  * Returns the 1-based physical sector number, or 0 on error. */
-uint8_t sector_translate(const uint8_t *table, uint8_t table_size, uint8_t logical);
+byte sector_translate(const byte *table, byte table_size, byte logical);
 
 #endif

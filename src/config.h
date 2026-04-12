@@ -1,7 +1,7 @@
 #ifndef CONFIG_H
 #define CONFIG_H
 
-#include <stdint.h>
+#include "types.h"
 
 /*
  * CONFI Configuration Block — 128 bytes from Track 0, Sector 2.
@@ -57,8 +57,8 @@
  */
 typedef struct {
     uint32_t baud_rate;
-    uint8_t  ctc_count;     /* CTC time constant (1-256, 0 means 256) */
-    uint8_t  wr4_value;     /* SIO WR4: 0x44 = x16 clock, 0xC4 = x64 clock */
+    byte  ctc_count;     /* CTC time constant (1-256, 0 means 256) */
+    byte  wr4_value;     /* SIO WR4: 0x44 = x16 clock, 0xC4 = x64 clock */
 } baud_entry_t;
 
 #define BAUD_TABLE_SIZE  12
@@ -66,21 +66,21 @@ typedef struct {
 extern const baud_entry_t baud_table[BAUD_TABLE_SIZE];
 
 /* Default CONFI block (128 bytes) */
-extern const uint8_t confi_defaults[CONFI_SIZE];
+extern const byte confi_defaults[CONFI_SIZE];
 
 /* Extract fields from a CONFI block */
-uint8_t  confi_get_ctc_count(const uint8_t *confi, uint8_t channel);
-uint8_t  confi_get_ctc_mode(const uint8_t *confi, uint8_t channel);
-uint8_t  confi_get_cursor(const uint8_t *confi);
-uint8_t  confi_get_xy_flag(const uint8_t *confi);
-uint16_t confi_get_motor_timer(const uint8_t *confi);
-uint8_t  confi_get_drive_format(const uint8_t *confi, uint8_t drive);
-uint8_t  confi_get_boot_device(const uint8_t *confi);
+byte  confi_get_ctc_count(const byte *confi, byte channel);
+byte  confi_get_ctc_mode(const byte *confi, byte channel);
+byte  confi_get_cursor(const byte *confi);
+byte  confi_get_xy_flag(const byte *confi);
+word confi_get_motor_timer(const byte *confi);
+byte  confi_get_drive_format(const byte *confi, byte drive);
+byte  confi_get_boot_device(const byte *confi);
 
 /* Calculate baud rate from CTC count and WR4 value */
-uint32_t baud_rate_calc(uint8_t ctc_count, uint8_t wr4);
+uint32_t baud_rate_calc(byte ctc_count, byte wr4);
 
 /* Look up baud entry by index (0..11), returns NULL if out of range */
-const baud_entry_t *baud_lookup(uint8_t index);
+const baud_entry_t *baud_lookup(byte index);
 
 #endif

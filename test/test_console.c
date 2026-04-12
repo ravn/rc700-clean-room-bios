@@ -77,11 +77,11 @@ static void test_scroll(void) {
 
     /* Put identifying chars on each row */
     for (int r = 0; r < SCREEN_ROWS; r++)
-        con.display[r * SCREEN_COLS] = (uint8_t)('A' + r);
+        con.display[r * SCREEN_COLS] = (byte)('A' + r);
 
     /* Move to last row, then linefeed to trigger scroll */
     con.cursy = SCREEN_ROWS - 1;
-    con.cury = (uint16_t)(SCREEN_ROWS - 1) * SCREEN_COLS;
+    con.cury = (word)(SCREEN_ROWS - 1) * SCREEN_COLS;
     console_linefeed(&con);
 
     /* Row 0 should now have what was row 1 */
@@ -136,7 +136,7 @@ static void test_erase_to_eol(void) {
 
     /* Write some chars */
     for (int i = 0; i < 10; i++)
-        console_putchar(&con, (uint8_t)('0' + i));
+        console_putchar(&con, (byte)('0' + i));
 
     /* Move to col 5, erase to EOL */
     con.curx = 5;

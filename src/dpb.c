@@ -46,6 +46,6 @@ const fdf_t fdf_table[FMT_COUNT] = {
     { .phys_spt=52, .dma_count=255, .mf=0x40, .n=1, .eot=26, .gap=14, .tracks=77 },
 };
 
-uint8_t dpb_format_index(uint8_t format_code) {
+byte dpb_format_index(byte format_code) {
     return (format_code >> 3) & 0x03;
 }

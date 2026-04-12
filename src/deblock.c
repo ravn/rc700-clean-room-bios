@@ -25,8 +25,8 @@ int deblock_flush(deblock_t *db) {
  */
 static int ensure_host_sector(deblock_t *db, int need_preread) {
     /* Compute host sector from CP/M sector */
-    uint8_t host_sec = db->seksec >> db->secshf;
-    uint8_t rec_offset = db->seksec & db->secmsk;
+    byte host_sec = db->seksec >> db->secshf;
+    byte rec_offset = db->seksec & db->secmsk;
 
     /* Check if already in buffer */
     if (db->hstact &&
@@ -68,14 +68,14 @@ int deblock_read(deblock_t *db) {
         return 1;
 
     /* Copy 128-byte record from host buffer to DMA address */
-    uint8_t rec_offset = db->seksec & db->secmsk;
-    uint16_t buf_offset = (uint16_t)rec_offset * 128;
+    byte rec_offset = db->seksec & db->secmsk;
+    word buf_offset = (word)rec_offset * 128;
     memcpy(db->dmaadr, &db->hstbuf[buf_offset], 128);
 
     return 0;
 }
 
-int deblock_write(deblock_t *db, uint8_t wrtyp) {
+int deblock_write(deblock_t *db, byte wrtyp) {
     db->erflag = 0;
 
     if (wrtyp == WRTYP_UNALLOC) {
@@ -107,8 +107,8 @@ int deblock_write(deblock_t *db, uint8_t wrtyp) {
         return 1;
 
     /* Copy 128-byte record from DMA address to host buffer */
-    uint8_t rec_offset = db->seksec & db->secmsk;
-    uint16_t buf_offset = (uint16_t)rec_offset * 128;
+    byte rec_offset = db->seksec & db->secmsk;
+    word buf_offset = (word)rec_offset * 128;
     memcpy(&db->hstbuf[buf_offset], db->dmaadr, 128);
     db->hstwrt = 1;
 

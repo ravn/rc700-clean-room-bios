@@ -1,11 +1,11 @@
 #ifndef HAL_H
 #define HAL_H
 
-#include <stdint.h>
+#include "types.h"
 
 /* Port I/O */
-void hal_out(uint8_t port, uint8_t value);
-uint8_t hal_in(uint8_t port);
+void hal_out(byte port, byte value);
+byte hal_in(byte port);
 
 /* Interrupt control */
 void hal_di(void);

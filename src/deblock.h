@@ -1,7 +1,7 @@
 #ifndef DEBLOCK_H
 #define DEBLOCK_H
 
-#include <stdint.h>
+#include "types.h"
 
 /*
  * CP/M 2.2 sector deblocking algorithm.
@@ -19,36 +19,36 @@
 #define WRTYP_UNALLOC    2   /* first sector of unallocated block, skip pre-read */
 
 /* Physical disk I/O callbacks — provided by the floppy/hard disk driver */
-typedef int (*disk_read_fn)(uint8_t disk, uint16_t track, uint8_t sector,
-                            uint8_t *buf);
-typedef int (*disk_write_fn)(uint8_t disk, uint16_t track, uint8_t sector,
-                             const uint8_t *buf);
+typedef int (*disk_read_fn)(byte disk, word track, byte sector,
+                            byte *buf);
+typedef int (*disk_write_fn)(byte disk, word track, byte sector,
+                             const byte *buf);
 
 /* Deblocking state */
 typedef struct {
-    uint8_t  hstbuf[HSTBUFSZ];  /* host sector buffer */
-    uint8_t  hstact;            /* host buffer active flag */
-    uint8_t  hstwrt;            /* host buffer written (dirty) flag */
-    uint8_t  hstdsk;            /* disk number in host buffer */
-    uint16_t hsttrk;            /* track number in host buffer */
-    uint8_t  hstsec;            /* sector number in host buffer */
+    byte  hstbuf[HSTBUFSZ];  /* host sector buffer */
+    byte  hstact;            /* host buffer active flag */
+    byte  hstwrt;            /* host buffer written (dirty) flag */
+    byte  hstdsk;            /* disk number in host buffer */
+    word hsttrk;            /* track number in host buffer */
+    byte  hstsec;            /* sector number in host buffer */
 
-    uint8_t  unacnt;            /* unallocated record count */
-    uint8_t  unadsk;            /* unallocated disk */
-    uint16_t unatrk;            /* unallocated track */
-    uint8_t  unasec;            /* unallocated sector */
+    byte  unacnt;            /* unallocated record count */
+    byte  unadsk;            /* unallocated disk */
+    word unatrk;            /* unallocated track */
+    byte  unasec;            /* unallocated sector */
 
     /* Current request parameters (set by caller before read/write) */
-    uint8_t  sekdsk;            /* requested disk */
-    uint16_t sektrk;            /* requested track */
-    uint8_t  seksec;            /* requested CP/M sector (0-based) */
-    uint8_t *dmaadr;            /* DMA address (128-byte buffer) */
+    byte  sekdsk;            /* requested disk */
+    word sektrk;            /* requested track */
+    byte  seksec;            /* requested CP/M sector (0-based) */
+    byte *dmaadr;            /* DMA address (128-byte buffer) */
 
     /* Format parameters (set by SELDSK) */
-    uint8_t  secmsk;            /* sector mask: records per phys sector - 1 */
-    uint8_t  secshf;            /* sector shift: log2(records per phys sector) + 1 */
+    byte  secmsk;            /* sector mask: records per phys sector - 1 */
+    byte  secshf;            /* sector shift: log2(records per phys sector) + 1 */
 
-    uint8_t  erflag;            /* error flag (0=ok, 1=error) */
+    byte  erflag;            /* error flag (0=ok, 1=error) */
 
     /* I/O callbacks */
     disk_read_fn  read_fn;
@@ -62,7 +62,7 @@ void deblock_init(deblock_t *db, disk_read_fn rfn, disk_write_fn wfn);
 int deblock_read(deblock_t *db);
 
 /* Perform a CP/M WRITE: copy 128 bytes from dmaadr to host buffer */
-int deblock_write(deblock_t *db, uint8_t wrtyp);
+int deblock_write(deblock_t *db, byte wrtyp);
 
 /* Flush dirty host buffer to disk (called at warm boot, format change, etc.) */
 int deblock_flush(deblock_t *db);

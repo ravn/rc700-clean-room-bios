@@ -18,7 +18,7 @@ const baud_entry_t baud_table[BAUD_TABLE_SIZE] = {
 };
 
 /* Default CONFI block per Section 16.2 */
-const uint8_t confi_defaults[CONFI_SIZE] = {
+const byte confi_defaults[CONFI_SIZE] = {
     /* +0x00 CTC */
     0x47, 0x01, 0x47, 0x01, 0xD7, 0x01, 0xD7, 0x01,
     /* +0x08 SIO-A (9 bytes) */
@@ -55,45 +55,45 @@ const uint8_t confi_defaults[CONFI_SIZE] = {
     0,0,0,0,0,0,0,0,
 };
 
-uint8_t confi_get_ctc_mode(const uint8_t *confi, uint8_t channel) {
+byte confi_get_ctc_mode(const byte *confi, byte channel) {
     if (channel > 3) return 0;
     return confi[CONFI_CTC_CH0_MODE + channel * 2];
 }
 
-uint8_t confi_get_ctc_count(const uint8_t *confi, uint8_t channel) {
+byte confi_get_ctc_count(const byte *confi, byte channel) {
     if (channel > 3) return 0;
     return confi[CONFI_CTC_CH0_COUNT + channel * 2];
 }
 
-uint8_t confi_get_cursor(const uint8_t *confi) {
+byte confi_get_cursor(const byte *confi) {
     return confi[CONFI_CURSOR];
 }
 
-uint8_t confi_get_xy_flag(const uint8_t *confi) {
+byte confi_get_xy_flag(const byte *confi) {
     return confi[CONFI_XY_FLAG];
 }
 
-uint16_t confi_get_motor_timer(const uint8_t *confi) {
-    return (uint16_t)confi[CONFI_MOTOR_TIMER]
-         | ((uint16_t)confi[CONFI_MOTOR_TIMER + 1] << 8);
+word confi_get_motor_timer(const byte *confi) {
+    return (word)confi[CONFI_MOTOR_TIMER]
+         | ((word)confi[CONFI_MOTOR_TIMER + 1] << 8);
 }
 
-uint8_t confi_get_drive_format(const uint8_t *confi, uint8_t drive) {
+byte confi_get_drive_format(const byte *confi, byte drive) {
     if (drive >= CONFI_DRIVE_COUNT) return DRIVE_NOT_PRESENT;
     return confi[CONFI_DRIVE_TABLE + drive];
 }
 
-uint8_t confi_get_boot_device(const uint8_t *confi) {
+byte confi_get_boot_device(const byte *confi) {
     return confi[CONFI_BOOT_DEVICE];
 }
 
 /* CTC input clock: 19.6608 MHz / 32 = 614400 Hz */
 #define CTC_INPUT_CLOCK  614400UL
 
-uint32_t baud_rate_calc(uint8_t ctc_count, uint8_t wr4) {
+uint32_t baud_rate_calc(byte ctc_count, byte wr4) {
     /* SIO clock mode from WR4 bits 7:6: 01=x16, 11=x64 */
-    uint8_t sio_mode = (wr4 >> 6) & 0x03;
-    uint16_t clock_div;
+    byte sio_mode = (wr4 >> 6) & 0x03;
+    word clock_div;
     if (sio_mode == 1)
         clock_div = 16;
     else if (sio_mode == 3)
@@ -102,12 +102,12 @@ uint32_t baud_rate_calc(uint8_t ctc_count, uint8_t wr4) {
         return 0;  /* invalid */
 
     /* CTC count of 0 means 256 */
-    uint16_t count = ctc_count ? ctc_count : 256;
+    word count = ctc_count ? ctc_count : 256;
 
     return CTC_INPUT_CLOCK / ((uint32_t)count * clock_div);
 }
 
-const baud_entry_t *baud_lookup(uint8_t index) {
+const baud_entry_t *baud_lookup(byte index) {
     if (index >= BAUD_TABLE_SIZE) return NULL;
     return &baud_table[index];
 }

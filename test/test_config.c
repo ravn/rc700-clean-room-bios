@@ -8,7 +8,7 @@ static void test_confi_defaults_size(void) {
 }
 
 static void test_ctc_defaults(void) {
-    const uint8_t *c = confi_defaults;
+    const byte *c = confi_defaults;
 
     /* CTC Ch.0: timer mode 0x47, count 1 (38400 baud for SIO-A) */
     assert(confi_get_ctc_mode(c, 0) == 0x47);
@@ -32,7 +32,7 @@ static void test_ctc_defaults(void) {
 }
 
 static void test_sio_a_defaults(void) {
-    const uint8_t *sio_a = &confi_defaults[CONFI_SIO_A_START];
+    const byte *sio_a = &confi_defaults[CONFI_SIO_A_START];
     assert(sio_a[0] == 0x18);  /* WR0: channel reset */
     assert(sio_a[1] == 0x04);  /* WR0: select WR4 */
     assert(sio_a[2] == 0x44);  /* WR4: x16 clock, 1 stop, no parity */
@@ -45,7 +45,7 @@ static void test_sio_a_defaults(void) {
 }
 
 static void test_sio_b_defaults(void) {
-    const uint8_t *sio_b = &confi_defaults[CONFI_SIO_B_START];
+    const byte *sio_b = &confi_defaults[CONFI_SIO_B_START];
     assert(sio_b[0] == 0x18);   /* WR0: channel reset */
     assert(sio_b[1] == 0x02);   /* WR0: select WR2 */
     assert(sio_b[2] == 0x10);   /* WR2: interrupt vector base */
@@ -67,7 +67,7 @@ static void test_crt_params(void) {
 }
 
 static void test_user_settings(void) {
-    const uint8_t *c = confi_defaults;
+    const byte *c = confi_defaults;
     assert(confi_get_cursor(c) == 0x00);
     assert(c[CONFI_CONV_TABLE] == 0x00);
     assert(c[CONFI_BAUD_A_INDEX] == 0x06);
@@ -77,7 +77,7 @@ static void test_user_settings(void) {
 }
 
 static void test_drive_table(void) {
-    const uint8_t *c = confi_defaults;
+    const byte *c = confi_defaults;
     assert(confi_get_drive_format(c, 0) == 0x08);  /* Drive A: 8" DD */
     assert(confi_get_drive_format(c, 1) == 0x08);  /* Drive B: 8" DD */
     assert(confi_get_drive_format(c, 2) == 0x20);  /* Drive C: HD */
@@ -87,7 +87,7 @@ static void test_drive_table(void) {
 }
 
 static void test_boot_device(void) {
-    const uint8_t *c = confi_defaults;
+    const byte *c = confi_defaults;
     assert(confi_get_boot_device(c) == BOOT_FLOPPY);
 }
 

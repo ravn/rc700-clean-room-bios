@@ -1,7 +1,7 @@
 #ifndef IOBYTE_H
 #define IOBYTE_H
 
-#include <stdint.h>
+#include "types.h"
 
 /*
  * IOBYTE bit field extraction (CP/M 2.2 Table 6-4).
@@ -11,10 +11,10 @@
  *
  * Each returns 0..3.
  */
-uint8_t iobyte_con_mode(uint8_t iobyte);
-uint8_t iobyte_rdr_mode(uint8_t iobyte);
-uint8_t iobyte_pun_mode(uint8_t iobyte);
-uint8_t iobyte_lst_mode(uint8_t iobyte);
+byte iobyte_con_mode(byte iobyte);
+byte iobyte_rdr_mode(byte iobyte);
+byte iobyte_pun_mode(byte iobyte);
+byte iobyte_lst_mode(byte iobyte);
 
 /* CON: mode constants */
 #define CON_TTY  0  /* SIO-B serial (+ CRT display fallthrough) */
@@ -45,7 +45,7 @@ uint8_t iobyte_lst_mode(uint8_t iobyte);
 #define IOBYTE_LOCAL   0x95  /* CON:CRT, RDR:PTR, PUN:PTP, LST:LPT */
 
 /* CON: input source queries */
-int iobyte_keyboard_allowed(uint8_t iobyte);  /* true for CRT(1), UC1(3) */
-int iobyte_serial_allowed(uint8_t iobyte);    /* true for TTY(0), BAT(2), UC1(3) */
+int iobyte_keyboard_allowed(byte iobyte);  /* true for CRT(1), UC1(3) */
+int iobyte_serial_allowed(byte iobyte);    /* true for TTY(0), BAT(2), UC1(3) */
 
 #endif

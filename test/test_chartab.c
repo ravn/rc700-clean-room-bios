@@ -9,11 +9,11 @@ static void test_identity_init(void) {
 
     /* Output table: identity for 0x00-0x7F */
     for (int i = 0; i < OUTCON_SIZE; i++)
-        assert(ct.outcon[i] == (uint8_t)i);
+        assert(ct.outcon[i] == (byte)i);
 
     /* Input table: identity for 0x00-0xFF */
     for (int i = 0; i < INCONV_SIZE; i++)
-        assert(ct.inconv[i] == (uint8_t)i);
+        assert(ct.inconv[i] == (byte)i);
 }
 
 static void test_output_conversion(void) {
@@ -50,13 +50,13 @@ static void test_load(void) {
     chartab_init_identity(&ct);
 
     /* Simulate loading from Track 0 sectors 3-5 (384 bytes) */
-    uint8_t data[384];
+    byte data[384];
     /* Fill OUTCON portion with reversed values */
     for (int i = 0; i < 128; i++)
-        data[i] = (uint8_t)(127 - i);
+        data[i] = (byte)(127 - i);
     /* Fill INCONV portion with complemented values */
     for (int i = 0; i < 256; i++)
-        data[128 + i] = (uint8_t)(~i);
+        data[128 + i] = (byte)(~i);
 
     chartab_load(&ct, data, 384);
 
@@ -71,7 +71,7 @@ static void test_partial_load(void) {
     chartab_init_identity(&ct);
 
     /* Load only OUTCON (128 bytes), INCONV stays identity */
-    uint8_t data[128];
+    byte data[128];
     memset(data, 0x42, 128);
     chartab_load(&ct, data, 128);
 

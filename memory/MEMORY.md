@@ -8,3 +8,4 @@
 - [Plans in project](feedback_plans_in_project.md) — Always save plans to tasks/ in the repo, not ~/.claude/plans/
 - [Compiler findings](project_compiler_findings.md) — zcc sdcc vs sccz80, C23 support, recommended flags, verified with ticks
 - [Global vars preferred](feedback_global_vars.md) — Use globals not params for Z80 code; no reentrant code in BIOS
+- [byte/word types](feedback_byte_word_types.md) — Use byte/word from types.h, not uint8_t/uint16_t
