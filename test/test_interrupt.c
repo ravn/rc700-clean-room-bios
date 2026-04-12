@@ -36,6 +36,8 @@ static void reset(void) {
 
 static void test_display_dma_reprogram(void) {
     reset();
+    /* Set display buffer to 0xF800 (standard Z80 address) */
+    display_isr_state.display_buf = (byte *)0xF800;
     isr_reprogram_display_dma();
 
     /* 11 port writes per Section 4.1 step 2 */
@@ -45,8 +47,8 @@ static void test_display_dma_reprogram(void) {
     assert(writes[w].port == 0xFA && writes[w].value == 0x06); w++;  /* mask ch.2 */
     assert(writes[w].port == 0xFA && writes[w].value == 0x07); w++;  /* mask ch.3 */
     assert(writes[w].port == 0xFC && writes[w].value == 0x00); w++;  /* clear flip-flop */
-    assert(writes[w].port == 0xF4 && writes[w].value == 0x00); w++;  /* ch.2 addr low */
-    assert(writes[w].port == 0xF4 && writes[w].value == 0xF8); w++;  /* ch.2 addr high */
+    assert(writes[w].port == 0xF4 && writes[w].value == 0x00); w++;  /* ch.2 addr low = 0x00 */
+    assert(writes[w].port == 0xF4 && writes[w].value == 0xF8); w++;  /* ch.2 addr high = 0xF8 */
     assert(writes[w].port == 0xF5 && writes[w].value == 0xCF); w++;  /* ch.2 count low */
     assert(writes[w].port == 0xF5 && writes[w].value == 0x07); w++;  /* ch.2 count high */
     assert(writes[w].port == 0xF7 && writes[w].value == 0x00); w++;  /* ch.3 count low */
@@ -142,6 +144,7 @@ static void test_full_display_isr(void) {
     reset();
     /* Set up 8275 status read to return 0 */
     read_values[0x01] = 0x00;
+    display_isr_state.display_buf = (byte *)0xF800;
     display_isr_state.cursor_dirty = 1;
     display_isr_state.curx = 5;
     display_isr_state.cursy = 10;

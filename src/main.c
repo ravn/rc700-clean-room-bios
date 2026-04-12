@@ -53,6 +53,14 @@ static deblock_t deblock_state;
 
 /* Console display state */
 static console_t console_state;
+#ifdef __SDCC
+/* Z80: display buffer is memory-mapped at 0xF800 for the 8275 CRT DMA */
+#define DISPLAY_BUF  ((byte *)DISPLAY_ADDR)
+#else
+/* Native: static array for testing */
+static byte native_display_buf[SCREEN_SIZE];
+#define DISPLAY_BUF  native_display_buf
+#endif
 
 /* Character conversion tables */
 static chartab_t chartab_state;
@@ -167,7 +175,7 @@ void bios_boot(void) {
     jtvars_init(&jtvars_local, confi_defaults);
 
     /* Initialize all subsystems */
-    console_init(&console_state);
+    console_init(&console_state, DISPLAY_BUF);
     console_state.adrmod = jtvars_local.adrmod;
     chartab_init_identity(&chartab_state);
     deblock_init(&deblock_state, host_disk_read, host_disk_write);

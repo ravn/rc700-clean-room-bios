@@ -57,6 +57,7 @@ typedef struct {
 
 /* Display ISR state */
 typedef struct {
+    byte *display_buf;        /* pointer to display buffer (for DMA programming) */
     byte  cursor_dirty;       /* set when cursor position changed */
     byte  curx;               /* current cursor column */
     byte  cursy;              /* current cursor row */

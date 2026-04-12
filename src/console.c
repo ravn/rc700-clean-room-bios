@@ -33,8 +33,10 @@ static void set_bgmap_bit(console_t *con, byte col, byte row) {
     con->bgmap[bit_index >> 3] |= (byte)(0x80 >> (bit_index & 7));
 }
 
-void console_init(console_t *con) {
+void console_init(console_t *con, byte *display_buf) {
+    byte *saved_display = display_buf;
     memset(con, 0, sizeof(*con));
+    con->display = saved_display;
     memset(con->display, 0x20, SCREEN_SIZE);
     con->cursor_dirty = 1;
 }

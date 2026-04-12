@@ -1,3 +1,4 @@
+#include <stddef.h>
 #include "interrupt.h"
 #include "hal.h"
 
@@ -14,9 +15,10 @@ void isr_reprogram_display_dma(void) {
     /* Clear byte pointer flip-flop */
     hal_out(0xFC, 0x00);
 
-    /* Channel 2: display data, address = 0xF800, count = 1999 (0x07CF) */
-    hal_out(0xF4, 0x00);  /* addr low */
-    hal_out(0xF4, 0xF8);  /* addr high */
+    /* Channel 2: display data, address from display_buf, count = 1999 (0x07CF) */
+    word disp_addr = (word)(size_t)display_isr_state.display_buf;
+    hal_out(0xF4, (byte)disp_addr);          /* addr low */
+    hal_out(0xF4, (byte)(disp_addr >> 8));   /* addr high */
     hal_out(0xF5, 0xCF);  /* count low */
     hal_out(0xF5, 0x07);  /* count high */
 

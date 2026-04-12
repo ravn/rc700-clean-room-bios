@@ -31,10 +31,15 @@
 #define BG_FOREGROUND    1
 #define BG_BACKGROUND    2
 
+/* Hardware display buffer address (8275 CRT DMA reads from here) */
+#define DISPLAY_ADDR  0xF800
+
 /* Console state */
 typedef struct {
-    /* Display buffer (logical, not memory-mapped on native) */
-    byte display[SCREEN_SIZE];
+    /* Display buffer — pointer to SCREEN_SIZE bytes.
+     * On Z80: points to 0xF800 (memory-mapped for 8275 CRT DMA).
+     * On native: points to a heap/static array for testing. */
+    byte *display;
 
     /* Cursor position */
     byte  curx;       /* column 0..79 */
@@ -54,8 +59,9 @@ typedef struct {
     byte  cursor_dirty;
 } console_t;
 
-/* Initialize console state: clear screen, home cursor */
-void console_init(console_t *con);
+/* Initialize console state: clear screen, home cursor.
+ * display_buf must point to SCREEN_SIZE bytes of memory. */
+void console_init(console_t *con, byte *display_buf);
 
 /* Process a character for CRT display output.
  * Handles control chars, XY escapes, and printable chars. */

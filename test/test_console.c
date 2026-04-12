@@ -3,9 +3,11 @@
 #include <string.h>
 #include "console.h"
 
+static byte test_display[SCREEN_SIZE];
+
 static void test_init(void) {
     console_t con;
-    console_init(&con);
+    console_init(&con, test_display);
     assert(con.curx == 0);
     assert(con.cursy == 0);
     assert(con.cury == 0);
@@ -17,7 +19,7 @@ static void test_init(void) {
 
 static void test_printable(void) {
     console_t con;
-    console_init(&con);
+    console_init(&con, test_display);
     console_putchar(&con, 'A');
     assert(con.display[0] == 'A');
     assert(con.curx == 1);
@@ -30,7 +32,7 @@ static void test_printable(void) {
 
 static void test_cursor_movement(void) {
     console_t con;
-    console_init(&con);
+    console_init(&con, test_display);
 
     /* Move right */
     console_cursor_right(&con);
@@ -57,7 +59,7 @@ static void test_cursor_movement(void) {
 
 static void test_line_wrap(void) {
     console_t con;
-    console_init(&con);
+    console_init(&con, test_display);
 
     /* Move to column 79 */
     for (int i = 0; i < 79; i++)
@@ -73,7 +75,7 @@ static void test_line_wrap(void) {
 
 static void test_scroll(void) {
     console_t con;
-    console_init(&con);
+    console_init(&con, test_display);
 
     /* Put identifying chars on each row */
     for (int r = 0; r < SCREEN_ROWS; r++)
@@ -94,7 +96,7 @@ static void test_scroll(void) {
 
 static void test_clear_screen(void) {
     console_t con;
-    console_init(&con);
+    console_init(&con, test_display);
     console_putchar(&con, 'X');
     console_putchar(&con, 'Y');
 
@@ -107,7 +109,7 @@ static void test_clear_screen(void) {
 
 static void test_carriage_return_linefeed(void) {
     console_t con;
-    console_init(&con);
+    console_init(&con, test_display);
     console_putchar(&con, 'H');
     console_putchar(&con, 'i');
     assert(con.curx == 2);
@@ -123,7 +125,7 @@ static void test_carriage_return_linefeed(void) {
 
 static void test_tab(void) {
     console_t con;
-    console_init(&con);
+    console_init(&con, test_display);
     console_putchar(&con, 0x09);  /* TAB */
     assert(con.curx == 4);
     console_putchar(&con, 0x09);
@@ -132,7 +134,7 @@ static void test_tab(void) {
 
 static void test_erase_to_eol(void) {
     console_t con;
-    console_init(&con);
+    console_init(&con, test_display);
 
     /* Write some chars */
     for (int i = 0; i < 10; i++)
@@ -152,7 +154,7 @@ static void test_erase_to_eol(void) {
 
 static void test_erase_to_eos(void) {
     console_t con;
-    console_init(&con);
+    console_init(&con, test_display);
 
     con.display[0] = 'A';
     con.display[SCREEN_SIZE - 1] = 'Z';
@@ -170,7 +172,7 @@ static void test_erase_to_eos(void) {
 
 static void test_xy_escape_xy_mode(void) {
     console_t con;
-    console_init(&con);
+    console_init(&con, test_display);
     con.adrmod = 0;  /* XY mode: first=col, second=row */
 
     console_putchar(&con, 0x06);  /* ACK = enter XY mode */
@@ -188,7 +190,7 @@ static void test_xy_escape_xy_mode(void) {
 
 static void test_xy_escape_yx_mode(void) {
     console_t con;
-    console_init(&con);
+    console_init(&con, test_display);
     con.adrmod = 1;  /* YX mode: first=row, second=col */
 
     console_putchar(&con, 0x06);
@@ -201,7 +203,7 @@ static void test_xy_escape_yx_mode(void) {
 
 static void test_xy_wrap(void) {
     console_t con;
-    console_init(&con);
+    console_init(&con, test_display);
     con.adrmod = 0;
 
     console_putchar(&con, 0x06);
@@ -214,7 +216,7 @@ static void test_xy_wrap(void) {
 
 static void test_insert_line(void) {
     console_t con;
-    console_init(&con);
+    console_init(&con, test_display);
 
     /* Put 'A' on row 0, 'B' on row 1, 'C' on row 2 */
     con.display[0 * SCREEN_COLS] = 'A';
@@ -234,7 +236,7 @@ static void test_insert_line(void) {
 
 static void test_delete_line(void) {
     console_t con;
-    console_init(&con);
+    console_init(&con, test_display);
 
     con.display[0 * SCREEN_COLS] = 'A';
     con.display[1 * SCREEN_COLS] = 'B';
@@ -252,7 +254,7 @@ static void test_delete_line(void) {
 
 static void test_background_mode(void) {
     console_t con;
-    console_init(&con);
+    console_init(&con, test_display);
 
     /* Enter background mode */
     console_putchar(&con, 0x13);  /* DC3 = enter background */
@@ -278,7 +280,7 @@ static void test_background_mode(void) {
 
 static void test_home(void) {
     console_t con;
-    console_init(&con);
+    console_init(&con, test_display);
     con.curx = 40;
     con.cursy = 12;
     con.cury = 12 * SCREEN_COLS;
@@ -290,7 +292,7 @@ static void test_home(void) {
 
 static void test_ignored_control_codes(void) {
     console_t con;
-    console_init(&con);
+    console_init(&con, test_display);
     /* Codes not in dispatch table should be silently ignored */
     console_putchar(&con, 0x00);
     console_putchar(&con, 0x03);
