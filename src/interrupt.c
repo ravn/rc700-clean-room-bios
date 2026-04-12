@@ -8,6 +8,11 @@ display_isr_state_t display_isr_state;
 /* ---- Display Refresh ISR (Section 4.1, 50 Hz) ---- */
 
 void isr_reprogram_display_dma(void) {
+    /* Match the PROM's DISINT routine exactly.
+     * Ch2: transfers display data from display_buf, count = 1999
+     * Ch3: set to display_buf with count = 1999 (for scroll wrap-around)
+     * Both channels must be fully programmed for the 8275 to work. */
+
     /* Mask DMA channels 2 and 3 */
     hal_out(0xFA, 0x06);  /* mask ch.2 */
     hal_out(0xFA, 0x07);  /* mask ch.3 */
@@ -15,16 +20,19 @@ void isr_reprogram_display_dma(void) {
     /* Clear byte pointer flip-flop */
     hal_out(0xFC, 0x00);
 
-    /* Channel 2: display data, address from display_buf, count = 1999 (0x07CF) */
     word disp_addr = (word)(size_t)display_isr_state.display_buf;
-    hal_out(0xF4, (byte)disp_addr);          /* addr low */
-    hal_out(0xF4, (byte)(disp_addr >> 8));   /* addr high */
-    hal_out(0xF5, 0xCF);  /* count low */
-    hal_out(0xF5, 0x07);  /* count high */
 
-    /* Channel 3: attributes, count = 0 */
-    hal_out(0xF7, 0x00);  /* count low */
-    hal_out(0xF7, 0x00);  /* count high */
+    /* Channel 2: display data */
+    hal_out(0xF4, (byte)disp_addr);          /* ch.2 addr low */
+    hal_out(0xF4, (byte)(disp_addr >> 8));   /* ch.2 addr high */
+    hal_out(0xF5, 0xCF);                     /* ch.2 count low (1999 & 0xFF) */
+    hal_out(0xF5, 0x07);                     /* ch.2 count high (1999 >> 8) */
+
+    /* Channel 3: same address and count (for wrap-around support) */
+    hal_out(0xF6, (byte)disp_addr);          /* ch.3 addr low */
+    hal_out(0xF6, (byte)(disp_addr >> 8));   /* ch.3 addr high */
+    hal_out(0xF7, 0xCF);                     /* ch.3 count low */
+    hal_out(0xF7, 0x07);                     /* ch.3 count high */
 
     /* Unmask channels */
     hal_out(0xFA, 0x02);  /* unmask ch.2 */
