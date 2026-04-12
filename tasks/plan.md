@@ -79,10 +79,14 @@ Plain `assert()` based tests, no external framework. Each test file has `main()`
 5. [x] `dpb.c` + `test_dpb.c` — DPB/FSPA/FDF structures, format dispatch
 6. [x] `config.c` + `test_config.c` — CONFI block parsing, baud rate tables
 
-### Phase 3 — Stateful logic
-7. [ ] `console.c` + `test_console.c` — cursor, control chars, scrolling
-8. [ ] `deblock.c` + `test_deblock.c` — sector deblocking algorithm
-9. [ ] `chartab.c` + `test_chartab.c` — character conversion tables
+### Phase 3 — Stateful logic (DONE)
+7. [x] `console.c` + `test_console.c` — cursor, control chars, scrolling, XY escape, background bitmap
+8. [x] `deblock.c` + `test_deblock.c` — sector deblocking algorithm (DR Appendix G)
+9. [x] `chartab.c` + `test_chartab.c` — character conversion tables
+
+### Investigate later
+- Compiler inlining: check if small functions get inlined with current zcc flags
+- Switch statements: verify they produce optimal Z80 code vs if-else chains
 
 ### Phase 4 — HAL and Z80 target
 10. [ ] `hal_z80.c` — real Z80 I/O

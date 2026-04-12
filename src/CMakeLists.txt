@@ -3,6 +3,9 @@ set(BIOS_LOGIC_SOURCES
     sector.c
     dpb.c
     config.c
+    deblock.c
+    console.c
+    chartab.c
 )
 
 if(TARGET_Z80)
