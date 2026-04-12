@@ -8,6 +8,7 @@ set(BIOS_LOGIC_SOURCES
     chartab.c
     ringbuf.c
     serial.c
+    floppy.c
 )
 
 if(TARGET_Z80)

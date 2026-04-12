@@ -27,3 +27,10 @@ target_link_libraries(test_imd PRIVATE bios_logic)
 target_include_directories(test_imd PRIVATE ${CMAKE_SOURCE_DIR}/src ${CMAKE_CURRENT_SOURCE_DIR})
 target_compile_definitions(test_imd PRIVATE TEST_IMAGE="${CMAKE_SOURCE_DIR}/disks/SW1711-I8.imd")
 add_test(NAME test_imd COMMAND test_imd)
+
+# Floppy driver integration test — provides its own HAL, links FDC IMD adapter
+add_executable(test_floppy test_floppy.c fdc_imd_adapter.c imd.c)
+target_link_libraries(test_floppy PRIVATE bios_logic)
+target_include_directories(test_floppy PRIVATE ${CMAKE_SOURCE_DIR}/src ${CMAKE_CURRENT_SOURCE_DIR})
+target_compile_definitions(test_floppy PRIVATE TEST_IMAGE="${CMAKE_SOURCE_DIR}/disks/SW1711-I8.imd")
+add_test(NAME test_floppy COMMAND test_floppy)
