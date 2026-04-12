@@ -11,6 +11,7 @@ set(BIOS_LOGIC_SOURCES
     floppy.c
     hwinit.c
     interrupt.c
+    jtvars.c
 )
 
 if(TARGET_Z80)

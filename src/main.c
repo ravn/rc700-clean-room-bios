@@ -17,11 +17,14 @@
 #include "ringbuf.h"
 #include "serial.h"
 #include "floppy.h"
+#include "hwinit.h"
+#include "interrupt.h"
+#include "jtvars.h"
 
 /* CP/M system addresses for 56K configuration */
 #define CCP_BASE    0xC400
 #define BDOS_BASE   0xD480
-#define BIOS_BASE   0xDA00
+/* BIOS_BASE defined in jtvars.h */
 
 /* IOBYTE location */
 #define IOBYTE_ADDR 0x0003
@@ -62,9 +65,11 @@ static keyboard_t  keyboard;
 /* Floppy driver */
 static floppy_t floppy_state;
 
-/* JTVARS drive format table (Section 19) */
+/* JTVARS */
+static jtvars_t jtvars_local;  /* C-side copy; Z80 build has _jtvars in crt0 */
+
+/* Drive format table (alias into JTVARS) */
 #define MAX_DRIVES  16
-static byte drive_formats[MAX_DRIVES];
 static byte last_format;      /* last selected format code (0xFF = none) */
 
 /* Current format parameters for selected drive */
@@ -158,18 +163,25 @@ void bios_list(byte c) {
 
 /* BOOT: Cold boot (Section 13.1) */
 void bios_boot(void) {
+    /* Initialize JTVARS from default CONFI block */
+    jtvars_init(&jtvars_local, confi_defaults);
+
     /* Initialize all subsystems */
     console_init(&console_state);
+    console_state.adrmod = jtvars_local.adrmod;
     chartab_init_identity(&chartab_state);
     deblock_init(&deblock_state, host_disk_read, host_disk_write);
     serial_ch_init(&sio_a, SIO_A_CTRL, SIO_A_DATA);
+    sio_a.wr5_base = jtvars_local.wr5a;
     serial_ch_init(&sio_b, SIO_B_CTRL, SIO_B_DATA);
+    sio_b.wr5_base = jtvars_local.wr5b;
     keyboard_init(&keyboard);
     floppy_init(&floppy_state);
 
-    /* Initialize drive format table from defaults */
-    for (int i = 0; i < MAX_DRIVES; i++)
-        drive_formats[i] = confi_get_drive_format(confi_defaults, (byte)i);
+    /* Hardware initialization (Section 7) */
+    hw_init_all(confi_defaults);
+
+    /* Drive format table from JTVARS */
     last_format = 0xFF;
     cur_fspa = NULL;
     cur_fdf = NULL;
@@ -333,7 +345,7 @@ void bios_home(void) {
 word bios_seldsk(byte disk) {
     if (disk >= MAX_DRIVES) return 0;
 
-    byte fmt = drive_formats[disk];
+    byte fmt = jtvars_local.fd0[disk];
     if (fmt == DRIVE_NOT_PRESENT) return 0;
     if (fmt >= 32) return 0;  /* hard disk — not supported yet */
 
@@ -447,6 +459,15 @@ void bios_wboot(void) {
     /* Reset DMA to default */
     bios_setdma(0x0080);
 }
+
+/* ---- Extended Entry Points (Section 14) — stubs ---- */
+
+void bios_wfitr(void) { /* stub */ }
+byte bios_reads(void) { return 0x00; /* stub */ }
+byte bios_linsel(byte port, byte line) { (void)port; (void)line; return 0x00; }
+void bios_exit(word callback, word count) { (void)callback; (void)count; }
+void bios_clock(byte mode, word de, word hl) { (void)mode; (void)de; (void)hl; }
+void bios_hrdfmt(void) { /* stub */ }
 
 /* ---- Accessors for testing ---- */
 
