@@ -30,5 +30,5 @@ echo "=== Smoke test (ticks) ==="
 docker run --rm --platform linux/amd64 \
   -v "$(pwd)":/src -w /src \
   z88dk/z88dk \
-  sh -c "zcc +test $FLAGS -create-app src/iobyte.c src/sector.c src/dpb.c src/config.c src/deblock.c src/console.c src/chartab.c src/ringbuf.c src/serial.c src/floppy.c src/hwinit.c src/interrupt.c src/jtvars.c src/hal_z80.c src/main.c -o build/z80/bios_smoke && z88dk-ticks build/z80/bios_smoke.bin"
+  sh -c "zcc +test $FLAGS -DSMOKE_TEST -create-app src/iobyte.c src/sector.c src/dpb.c src/config.c src/deblock.c src/console.c src/chartab.c src/ringbuf.c src/serial.c src/floppy.c src/hwinit.c src/interrupt.c src/jtvars.c src/hal_z80.c src/main.c -o build/z80/bios_smoke && z88dk-ticks build/z80/bios_smoke.bin"
 echo "Ticks exit: $?"

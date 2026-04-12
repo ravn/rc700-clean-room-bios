@@ -477,6 +477,7 @@ void bios_exit(word callback, word count) { (void)callback; (void)count; }
 void bios_clock(byte mode, word de, word hl) { (void)mode; (void)de; (void)hl; }
 void bios_hrdfmt(void) { /* stub */ }
 
+#ifdef SMOKE_TEST
 /* ---- Accessors for testing ---- */
 
 byte bios_get_iobyte(void) { return iobyte_val; }
@@ -550,3 +551,4 @@ int main(void) {
 
     return 0;
 }
+#endif /* SMOKE_TEST */
