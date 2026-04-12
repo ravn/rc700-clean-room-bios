@@ -4,7 +4,7 @@ set -e
 cd "$(dirname "$0")/.."
 mkdir -p build/z80
 
-SOURCES="src/iobyte.c src/sector.c src/dpb.c src/config.c src/deblock.c src/console.c src/chartab.c src/ringbuf.c src/serial.c src/hal_z80.c src/main.c"
+SOURCES="src/iobyte.c src/sector.c src/dpb.c src/config.c src/deblock.c src/console.c src/chartab.c src/ringbuf.c src/serial.c src/floppy.c src/hal_z80.c src/main.c"
 
 docker run --rm --platform linux/amd64 \
   -v "$(pwd)":/src -w /src \

@@ -4,6 +4,7 @@
  * Per RC702_BIOS_SPECIFICATION.md Sections 5, 6, 8, 9.
  */
 
+#include <stddef.h>
 #include "types.h"
 #include "hal.h"
 #include "iobyte.h"
@@ -15,6 +16,7 @@
 #include "chartab.h"
 #include "ringbuf.h"
 #include "serial.h"
+#include "floppy.h"
 
 /* CP/M system addresses for 56K configuration */
 #define CCP_BASE    0xC400
@@ -57,15 +59,69 @@ static serial_ch_t sio_a;   /* SIO Channel A: data/printer port */
 static serial_ch_t sio_b;   /* SIO Channel B: console/terminal port */
 static keyboard_t  keyboard;
 
-/* Stub disk I/O — to be replaced with real FDC driver */
-static int stub_disk_read(byte disk, word track, byte sector, byte *buf) {
-    (void)disk; (void)track; (void)sector; (void)buf;
-    return 1;  /* not implemented yet */
+/* Floppy driver */
+static floppy_t floppy_state;
+
+/* JTVARS drive format table (Section 19) */
+#define MAX_DRIVES  16
+static byte drive_formats[MAX_DRIVES];
+static byte last_format;      /* last selected format code (0xFF = none) */
+
+/* Current format parameters for selected drive */
+static const fspa_t *cur_fspa;
+static const fdf_t  *cur_fdf;
+
+/* CP/M DPH structures — one per drive (only A and B used initially) */
+/* DPH: XLT(2), scratch(6), DIRBF(2), DPB(2), CSV(2), ALV(2) = 16 bytes */
+static byte  dirbuf[128];            /* shared directory buffer */
+static byte  csv[2][32];             /* check vectors for drives A, B */
+static byte  alv[2][71];             /* allocation vectors for drives A, B */
+static word  dph_dpb_ptr[2];         /* DPB pointer in each DPH */
+
+/* Host-sector physical I/O through the floppy driver.
+ * These are the callbacks for the deblocking algorithm. */
+static int host_disk_read(byte disk, word track, byte sector, byte *buf) {
+    if (disk >= MAX_DRIVES || !cur_fdf) return 1;
+
+    /* Map host sector to head + physical sector (Section 10.3) */
+    byte head = 0;
+    byte phys_sec;
+    if (sector < cur_fdf->eot) {
+        phys_sec = sector_translate(cur_fspa->tran_table,
+                                    cur_fspa->tran_size, sector);
+    } else {
+        head = 1;
+        phys_sec = sector_translate(cur_fspa->tran_table,
+                                    cur_fspa->tran_size,
+                                    sector - cur_fdf->eot);
+    }
+    if (phys_sec == 0) return 1;  /* translation error */
+
+    return floppy_read_with_retry(&floppy_state, disk,
+                                  (byte)track, head, phys_sec,
+                                  cur_fdf, (word)(size_t)buf);
 }
 
-static int stub_disk_write(byte disk, word track, byte sector, const byte *buf) {
-    (void)disk; (void)track; (void)sector; (void)buf;
-    return 1;  /* not implemented yet */
+static int host_disk_write(byte disk, word track, byte sector,
+                           const byte *buf) {
+    if (disk >= MAX_DRIVES || !cur_fdf) return 1;
+
+    byte head = 0;
+    byte phys_sec;
+    if (sector < cur_fdf->eot) {
+        phys_sec = sector_translate(cur_fspa->tran_table,
+                                    cur_fspa->tran_size, sector);
+    } else {
+        head = 1;
+        phys_sec = sector_translate(cur_fspa->tran_table,
+                                    cur_fspa->tran_size,
+                                    sector - cur_fdf->eot);
+    }
+    if (phys_sec == 0) return 1;
+
+    return floppy_write_with_retry(&floppy_state, disk,
+                                   (byte)track, head, phys_sec,
+                                   cur_fdf, (word)(size_t)buf);
 }
 
 /* ---- CRT output (internal, always writes to display buffer) ---- */
@@ -100,34 +156,35 @@ void bios_list(byte c) {
     }
 }
 
-/* BOOT: Cold boot */
+/* BOOT: Cold boot (Section 13.1) */
 void bios_boot(void) {
     /* Initialize all subsystems */
     console_init(&console_state);
     chartab_init_identity(&chartab_state);
-    deblock_init(&deblock_state, stub_disk_read, stub_disk_write);
+    deblock_init(&deblock_state, host_disk_read, host_disk_write);
     serial_ch_init(&sio_a, SIO_A_CTRL, SIO_A_DATA);
     serial_ch_init(&sio_b, SIO_B_CTRL, SIO_B_DATA);
     keyboard_init(&keyboard);
+    floppy_init(&floppy_state);
+
+    /* Initialize drive format table from defaults */
+    for (int i = 0; i < MAX_DRIVES; i++)
+        drive_formats[i] = confi_get_drive_format(confi_defaults, (byte)i);
+    last_format = 0xFF;
+    cur_fspa = NULL;
+    cur_fdf = NULL;
 
     /* DCD auto-detection (Section 6.8) */
     byte rr0 = hal_in(SIO_B_RR0_PORT);
     if (rr0 & SIO_B_DCD_BIT)
-        iobyte_val = IOBYTE_JOINED;   /* remote host detected */
+        iobyte_val = IOBYTE_JOINED;
     else
-        iobyte_val = IOBYTE_LOCAL;    /* local CRT only */
+        iobyte_val = IOBYTE_LOCAL;
 
     cur_disk = 0;
     cur_track = 0;
     cur_sector = 0;
     cur_dma = (byte *)0x0080;
-}
-
-/* WBOOT: Warm boot — IOBYTE is preserved */
-void bios_wboot(void) {
-    hal_ei();
-    deblock_flush(&deblock_state);
-    deblock_state.unacnt = 0;
 }
 
 /* CONST: Console status — returns 0xFF if char ready, 0x00 if not */
@@ -272,11 +329,34 @@ void bios_home(void) {
     cur_track = 0;
 }
 
-/* SELDSK: Select disk, returns DPH address or 0 */
+/* SELDSK: Select disk — format dispatch (Section 10.2) */
 word bios_seldsk(byte disk) {
+    if (disk >= MAX_DRIVES) return 0;
+
+    byte fmt = drive_formats[disk];
+    if (fmt == DRIVE_NOT_PRESENT) return 0;
+    if (fmt >= 32) return 0;  /* hard disk — not supported yet */
+
+    byte idx = dpb_format_index(fmt);
+    if (idx >= FMT_COUNT) return 0;
+
+    /* Flush dirty buffer if format changed */
+    if (fmt != last_format)
+        deblock_flush(&deblock_state);
+    last_format = fmt;
+
+    /* Select format parameters */
+    cur_fspa = &fspa_table[idx];
+    cur_fdf = &fdf_table[idx];
     cur_disk = disk;
-    /* stub — return 0 (error) for now */
-    return 0;
+
+    /* Update deblocking parameters */
+    deblock_state.secmsk = cur_fspa->sector_mask;
+    deblock_state.secshf = cur_fspa->sector_shift;
+
+    /* Return DPH address — for now return a non-zero sentinel.
+     * Real implementation needs proper DPH structures at fixed addresses. */
+    return 1;  /* non-zero = success */
 }
 
 /* SETTRK: Set track */
@@ -333,6 +413,39 @@ byte bios_listst(void) {
 word bios_sectran(word sector, word xlt) {
     (void)xlt;
     return sector;
+}
+
+/* CCP+BDOS size: 0x1600 = 5632 bytes = 176 x 128-byte records */
+#define CPML       0x1600
+#define NSECTS     (CPML / 128)
+
+/* WBOOT: Warm boot (Section 13.2) — IOBYTE is preserved */
+void bios_wboot(void) {
+    hal_ei();
+
+    /* Select drive A */
+    bios_seldsk(0);
+    deblock_state.unacnt = 0;
+
+    /* Home drive (flush + recalibrate) */
+    deblock_flush(&deblock_state);
+    deblock_state.hstact = 0;
+    bios_home();
+
+    /* Load CCP+BDOS from track 1 */
+    bios_setdma(CCP_BASE);
+    bios_settrk(1);
+    for (word sec = 0; sec < NSECTS; sec++) {
+        bios_setsec(sec);
+        if (bios_read() != 0) {
+            /* Disk read error — on real hardware would halt */
+            return;
+        }
+        cur_dma += 128;
+    }
+
+    /* Reset DMA to default */
+    bios_setdma(0x0080);
 }
 
 /* ---- Accessors for testing ---- */
@@ -394,15 +507,17 @@ int main(void) {
     byte ch = bios_conin();
     if (ch != 'A') return 12;
 
-    /* Test LIST routing — LST:CRT should write to display */
-    iobyte_val = (iobyte_val & 0x3F) | (LST_CRT << 6);
-    bios_list('Z');
-    /* 'H' at pos 0, cursor advanced to 1, then 'A' via conin doesn't write,
-     * so 'Z' via LIST/CRT goes through crt_output to current cursor pos */
+    /* Test SELDSK — drive A should succeed (format 0x08 = DD MFM) */
+    if (bios_seldsk(0) == 0) return 13;
+    if (cur_fspa != &fspa_table[FMT_8DD_MFM]) return 14;
+    if (cur_fdf != &fdf_table[FMT_8DD_MFM]) return 15;
+
+    /* SELDSK with invalid drive should fail */
+    if (bios_seldsk(15) != 0) return 16;
 
     /* Test READER with RDR:UC1 (parked) — returns EOF */
     iobyte_val = (iobyte_val & 0xF3) | (RDR_UC1 << 2);
-    if (bios_reader() != 0x1A) return 13;
+    if (bios_reader() != 0x1A) return 17;
 
     return 0;
 }
