@@ -14,3 +14,9 @@ add_bios_test(test_console)
 add_bios_test(test_chartab)
 add_bios_test(test_ringbuf)
 add_bios_test(test_serial)
+
+# FDC simulator test — includes fdc_sim.c directly
+add_executable(test_fdc_sim test_fdc_sim.c fdc_sim.c hal_mock.c)
+target_link_libraries(test_fdc_sim PRIVATE bios_logic)
+target_include_directories(test_fdc_sim PRIVATE ${CMAKE_SOURCE_DIR}/src ${CMAKE_CURRENT_SOURCE_DIR})
+add_test(NAME test_fdc_sim COMMAND test_fdc_sim)
