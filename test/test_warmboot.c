@@ -38,11 +38,17 @@ static byte z80_mem[65536];
 static fdc_imd_t fdc;
 static imd_disk_t disk;
 
-/* DMA state */
+/* DMA state captured from port I/O */
 static word dma_addr;
 static word dma_count;
 static byte dma_addr_toggle;
 static byte dma_count_toggle;
+
+/* DMA address verification */
+static word last_dma_addr;   /* address programmed on last unmask */
+static word expected_dma_addr; /* address we expect to see */
+static int  dma_addr_checked;
+static int  dma_addr_mismatches;
 
 /* HAL implementation */
 void hal_out(byte port, byte value) {
@@ -51,8 +57,19 @@ void hal_out(byte port, byte value) {
         fdc_imd_write_data(&fdc, value);
         break;
     case 0xFA:
-        if (value == 0x01)
+        if (value == 0x01) {
+            /* DMA unmask — record the programmed address and route to sim */
+            last_dma_addr = dma_addr;
             fdc_imd_set_dma(&fdc, &z80_mem[dma_addr], dma_count + 1);
+
+            /* Verify the DMA address matches what we expect */
+            if (expected_dma_addr != 0xFFFF) {
+                dma_addr_checked++;
+                if (dma_addr != expected_dma_addr) {
+                    dma_addr_mismatches++;
+                }
+            }
+        }
         break;
     case 0xFC:
         dma_addr_toggle = 0;
@@ -97,6 +114,9 @@ void hal_ei(void) {}
 #define NSECTS     (CPML / 128)
 #define MAX_DRIVES 16
 
+/* Place the host buffer at a known Z80 address for DMA verification */
+#define HSTBUF_ADDR  0xEE81  /* per spec: HSTBUF at 0xEE81 */
+
 static deblock_t deblock_state;
 static floppy_t  floppy_state;
 static byte      drive_formats[MAX_DRIVES];
@@ -108,7 +128,6 @@ static word  cur_sector;
 static byte *cur_dma;
 
 static int host_disk_read(byte drv, word track, byte sector, byte *buf) {
-    (void)drv;
     byte head = 0;
     byte phys_sec;
     if (sector < cur_fdf->eot) {
@@ -122,16 +141,23 @@ static int host_disk_read(byte drv, word track, byte sector, byte *buf) {
     }
     if (phys_sec == 0) return 1;
 
-    /* On native, bypass the DMA mechanism and read directly from IMD.
-     * The floppy driver programs DMA ports, but on 64-bit native the
-     * 16-bit DMA address can't represent a real pointer. Instead, we
-     * read the sector data directly into the host buffer. */
-    byte *src = imd_get_sector(&disk, (int)track, (int)head, (int)phys_sec);
-    if (!src) return 1;
+    /* The deblock layer passes buf = deblock_state.hstbuf.
+     * We set expected_dma_addr to HSTBUF_ADDR so the HAL intercept
+     * can verify the floppy driver programs the DMA controller with
+     * the correct address. The FDC sim writes to z80_mem[dma_addr]. */
+    expected_dma_addr = HSTBUF_ADDR;
+
+    int rc = floppy_read_with_retry(&floppy_state, drv,
+                                    (byte)track, head, phys_sec,
+                                    cur_fdf, HSTBUF_ADDR);
+
+    /* Copy from z80_mem DMA target back to the deblock host buffer,
+     * since on native the deblock buffer is not inside z80_mem. */
     int sec_size = imd_get_sector_size(&disk, (int)track, (int)head);
     if (sec_size > 512) sec_size = 512;
-    memcpy(buf, src, (size_t)sec_size);
-    return 0;
+    memcpy(buf, &z80_mem[HSTBUF_ADDR], (size_t)sec_size);
+
+    return rc;
 }
 
 static int host_disk_write(byte drv, word track, byte sector,
@@ -318,10 +344,21 @@ int main(void) {
     fdc_imd_mount(&fdc, 0, &disk);
     memset(z80_mem, 0, sizeof(z80_mem));
 
+    /* Initialize DMA verification state */
+    expected_dma_addr = 0xFFFF;  /* disabled until host_disk_read sets it */
+    dma_addr_checked = 0;
+    dma_addr_mismatches = 0;
+
     test_warmboot_loads_ccp_bdos();
     test_ccp_starts_with_code();
     test_bdos_present();
     test_bytes_match_disk_image();
+
+    /* Report DMA address verification results */
+    printf("  DMA address verification: %d transfers checked, %d mismatches\n",
+           dma_addr_checked, dma_addr_mismatches);
+    assert(dma_addr_checked > 0);
+    assert(dma_addr_mismatches == 0);
 
     printf("All warmboot tests passed.\n");
     return 0;
