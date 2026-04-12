@@ -40,7 +40,8 @@
       "Bash(xxd ~/git/rc700/roa375.rom)",
       "Bash(echo \"Native: $?\")",
       "Bash(awk '{print $6, $7, $8, $9}')",
-      "Bash(ls -la build/z80/rc702-bios*)"
+      "Bash(ls -la build/z80/rc702-bios*)",
+      "Bash(~/git/mame/floptool flopconvert:*)"
     ]
   },
   "prefersReducedMotion": true

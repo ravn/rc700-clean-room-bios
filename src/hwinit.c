@@ -66,17 +66,19 @@ void hw_init_dma(const byte *confi) {
 /* ---- 7.6 FDC Initialization ---- */
 
 void hw_init_fdc(const byte *confi) {
-    /* Wait for FDC idle (bits 4:0 = 0) */
-    while (hal_in(0x04) & 0x1F)
-        ;
+    /* Wait for FDC idle (bits 4:0 = 0), with timeout */
+    for (int timeout = 10000; timeout > 0; timeout--) {
+        if ((hal_in(0x04) & 0x1F) == 0) break;
+    }
 
     /* Send SPECIFY command: 3 bytes from CONFI offset 0x25 */
-    /* Wait for RQM=1, DIO=0 before each byte */
     const byte *fdc_spec = &confi[CONFI_FDC_SPEC_START];
     byte count = fdc_spec[0];  /* byte count (3) */
     for (byte i = 1; i <= count; i++) {
-        while ((hal_in(0x04) & 0xC0) != 0x80)
-            ;
+        /* Wait for RQM=1, DIO=0 with timeout */
+        for (int t = 10000; t > 0; t--) {
+            if ((hal_in(0x04) & 0xC0) == 0x80) break;
+        }
         hal_out(0x05, fdc_spec[i]);
     }
 }
