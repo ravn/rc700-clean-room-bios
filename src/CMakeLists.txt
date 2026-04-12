@@ -9,6 +9,7 @@ set(BIOS_LOGIC_SOURCES
     ringbuf.c
     serial.c
     floppy.c
+    hwinit.c
 )
 
 if(TARGET_Z80)
