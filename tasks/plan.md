@@ -88,11 +88,11 @@ Plain `assert()` based tests, no external framework. Each test file has `main()`
 - Compiler inlining: check if small functions get inlined with current zcc flags
 - Switch statements: verify they produce optimal Z80 code vs if-else chains
 
-### Phase 4 — HAL and Z80 target
-10. [ ] `hal_z80.c` — real Z80 I/O
-11. [ ] `main.c` — BIOS jump table, entry points
-12. [ ] Z80 Docker build producing a binary
-13. [ ] Ticks smoke test
+### Phase 4 — HAL and Z80 target (DONE)
+10. [x] `hal_z80.c` — real Z80 I/O via SDCC inline asm
+11. [x] `main.c` — BIOS entry points + ticks smoke test (stub I/O)
+12. [x] Z80 Docker build producing a binary (9KB with test CRT, ~5KB BIOS code)
+13. [x] Ticks smoke test — all assertions pass (exit 0, 213K ticks)
 
 ### Phase 5 — Integration
 14. [ ] Test in MAME rc702 driver
