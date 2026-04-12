@@ -10,18 +10,17 @@ display_isr_state_t display_isr_state;
 void isr_reprogram_display_dma(void) {
     /* Only use DMA channel 2 for the full 2000-byte display transfer.
      * Channel 3 stays masked (not used until scrolling is implemented). */
+    byte addr_lo = (byte)(word)(size_t)display_isr_state.display_buf;
+    byte addr_hi = (byte)((word)(size_t)display_isr_state.display_buf >> 8);
 
     hal_out(0xFA, 0x06);  /* mask ch.2 */
     hal_out(0xFA, 0x07);  /* mask ch.3 */
     hal_out(0xFC, 0x00);  /* clear byte pointer flip-flop */
 
-    word disp_addr = (word)(size_t)display_isr_state.display_buf;
-
-    /* Channel 2: full display buffer, 2000 bytes */
-    hal_out(0xF4, (byte)disp_addr);          /* ch.2 addr low */
-    hal_out(0xF4, (byte)(disp_addr >> 8));   /* ch.2 addr high */
-    hal_out(0xF5, 0xCF);                     /* ch.2 count low (1999 & 0xFF) */
-    hal_out(0xF5, 0x07);                     /* ch.2 count high (1999 >> 8) */
+    hal_out(0xF4, addr_lo);   /* ch.2 addr low */
+    hal_out(0xF4, addr_hi);   /* ch.2 addr high */
+    hal_out(0xF5, 0xCF);      /* ch.2 count low (1999 & 0xFF) */
+    hal_out(0xF5, 0x07);      /* ch.2 count high (1999 >> 8) */
 
     hal_out(0xFA, 0x02);  /* unmask ch.2 only */
 }
