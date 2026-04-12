@@ -26,13 +26,34 @@ scripts/z80-ticks.sh <binary>  # Run Z80 binary in ticks simulator
 
 CLion: open the project and select the "Native (Host Tests)" preset.
 
+## Z80 Compiler (zcc)
+
+Always invoke the compiler through `zcc`, never directly as zsdcc/sccz80.
+
+Recommended backend: **sdcc** (`-compiler=sdcc`). Produces smaller code than sccz80.
+
+Recommended flags: `-Cs--std-c23 -SO3 --opt-code-size`
+
+Supported C features (sdcc with `--std-c23`):
+- C99: stdint.h, designated initializers, for-init, inline, _Bool, __func__
+- C11: _Static_assert, _Generic, anonymous structs/unions, _Alignof
+- C23: typeof, nullptr, bool/true/false keywords, enum with underlying type, auto, empty initializers {}, _Static_assert without message, binary literals (0b...), digit separators
+
+**Not supported:** constexpr, compound literals, [[attributes]], __attribute__((packed))
+
+**Important:** Do NOT include `<stdbool.h>` when using `--std-c23` (bool is a keyword, stdbool.h conflicts). Do NOT use `-debug` flag (causes assembler errors with arrays).
+
+SDCC Z80 extensions: `__sfr __at(port)`, `__at(addr)`, `__asm/__endasm`, `__naked`, `__critical{}`, `__interrupt`.
+
+**Prefer global variables over function parameters** for Z80 code — no BIOS code is reentrant, and globals save ~8% code size.
+
 ## Architecture
 
 - **src/** — BIOS logic in portable C. Compiles natively (for tests) and to Z80 (via z88dk).
 - **test/** — Native test executables. Each `test_*.c` has its own `main()`, uses plain `assert()`, runs via CTest.
 - **src/hal.h** — Hardware abstraction layer. Portable logic calls `hal_out()`/`hal_in()` etc., never touches hardware directly.
 - **test/hal_mock.c** — Mock HAL for tests: arrays simulating port state.
-- **scripts/** — Docker wrappers for z88dk Z80 builds and ticks simulator.
+- **scripts/** — Docker wrappers for z88dk Z80 builds and z88dk-ticks simulator.
 
 ## Key Files
 

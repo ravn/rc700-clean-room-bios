@@ -6,3 +6,5 @@
 - [Size constraint](project_size_constraint.md) — Z80 BIOS + config must fit in track 0 (roa375 autoloader)
 - [Commit workflow](feedback_commit_workflow.md) — Investigate problems, create tasks/issues, summarize, then commit
 - [Plans in project](feedback_plans_in_project.md) — Always save plans to tasks/ in the repo, not ~/.claude/plans/
+- [Compiler findings](project_compiler_findings.md) — zcc sdcc vs sccz80, C23 support, recommended flags, verified with ticks
+- [Global vars preferred](feedback_global_vars.md) — Use globals not params for Z80 code; no reentrant code in BIOS

@@ -6,4 +6,4 @@ cd "$(dirname "$0")/.."
 docker run --rm --platform linux/amd64 \
   -v "$(pwd)":/src -w /src \
   z88dk/z88dk \
-  ticks "$BINARY"
+  z88dk-ticks "$BINARY"
