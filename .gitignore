@@ -1,0 +1,24 @@
+# Build directories
+/build/
+
+# CLion / IntelliJ
+.idea/
+
+# CMake generated
+CMakeCache.txt
+CMakeFiles/
+cmake-build-*/
+compile_commands.json
+
+# OS files
+.DS_Store
+
+# z88dk output artifacts
+*.bin
+*.ihx
+*.hex
+*.map
+*.sym
+*.lis
+*.o
+*.lst

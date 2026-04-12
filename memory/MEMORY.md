@@ -1,0 +1,7 @@
+- [Project goal](project_goal.md) — End goal is a working BIOS on physical RC702/RC703 with 8" drives
+- [Emulators](reference_emulators.md) — MAME (~/git/mame, IMD not persisted) and rc700 (~/git/rc700) for testing
+- [Memory location](feedback_memory_location.md) — Store memory in git-tracked locations
+- [No home search](feedback_no_home_search.md) — CRITICAL: never search/glob ~/  or /Users/ravn/
+- [GitHub repo](reference_github_repo.md) — https://github.com/ravn/rc700-clean-room-bios
+- [Size constraint](project_size_constraint.md) — Z80 BIOS + config must fit in track 0 (roa375 autoloader)
+- [Commit workflow](feedback_commit_workflow.md) — Investigate problems, create tasks/issues, summarize, then commit

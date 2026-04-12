@@ -1,0 +1,42 @@
+{
+  "version": 6,
+  "configurePresets": [
+    {
+      "name": "native",
+      "displayName": "Native (Host Tests)",
+      "generator": "Unix Makefiles",
+      "binaryDir": "${sourceDir}/build/native",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "CMAKE_C_STANDARD": "11"
+      }
+    },
+    {
+      "name": "z80",
+      "displayName": "Z80 (z88dk via Docker)",
+      "generator": "Unix Makefiles",
+      "binaryDir": "${sourceDir}/build/z80",
+      "toolchainFile": "/usr/local/share/z88dk/cmake/Toolchain-zcc.cmake",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release"
+      }
+    }
+  ],
+  "buildPresets": [
+    {
+      "name": "native",
+      "configurePreset": "native"
+    },
+    {
+      "name": "z80",
+      "configurePreset": "z80"
+    }
+  ],
+  "testPresets": [
+    {
+      "name": "native",
+      "configurePreset": "native",
+      "output": { "outputOnFailure": true }
+    }
+  ]
+}

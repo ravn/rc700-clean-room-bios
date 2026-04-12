@@ -1,0 +1,22 @@
+{
+  "permissions": {
+    "allow": [
+      "WebSearch",
+      "Bash(git:*)",
+      "Bash(docker --version)",
+      "Bash(cmake --version)",
+      "Bash(gcc --version)",
+      "Bash(clang --version)",
+      "Bash(brew list:*)",
+      "Read(//opt/homebrew/bin/**)",
+      "Read(//Applications/CLion.app/**)",
+      "Bash(mdfind -name CLion.app)",
+      "Bash(chmod +x:*)",
+      "Bash(cmake:*)",
+      "Bash(export PATH=\"/Applications/CLion.app/Contents/bin/cmake/mac/aarch64/bin:$PATH\")",
+      "Bash(xcode-select -p)",
+      "Bash(ctest --preset native)"
+    ]
+  },
+  "prefersReducedMotion": true
+}
