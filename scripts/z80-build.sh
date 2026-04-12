@@ -16,6 +16,15 @@ docker run --rm --platform linux/amd64 \
 echo "Built: $(wc -c < build/z80/bios_CODE.bin) bytes (CODE binary)"
 grep -E '__code_compiler_tail|__rodata_compiler_tail|__bss_compiler_head' build/z80/bios.map | head -3
 
+# Verify BIOS jump table is at a page boundary (0xXX00)
+CODE_HEAD=$(grep '__CODE_head' build/z80/bios.map | awk '{print $3}' | sed 's/\$//')
+CODE_HEAD_LOW=$((16#${CODE_HEAD: -2}))
+if [ "$CODE_HEAD_LOW" -ne 0 ]; then
+    echo "ERROR: BIOS jump table at 0x${CODE_HEAD} is NOT page-aligned!"
+    exit 1
+fi
+echo "BIOS jump table at 0x${CODE_HEAD} — page-aligned OK"
+
 echo ""
 echo "=== Smoke test (ticks) ==="
 docker run --rm --platform linux/amd64 \
