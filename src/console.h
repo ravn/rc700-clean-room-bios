@@ -31,8 +31,9 @@
 #define BG_FOREGROUND    1
 #define BG_BACKGROUND    2
 
-/* Hardware display buffer address (8275 CRT DMA reads from here) */
-#define DISPLAY_ADDR  0xF800
+/* Hardware display buffer address (8275 CRT DMA reads from here)
+ * PROM uses 0x7800; final BIOS will use 0xF800 with its own ISR */
+#define DISPLAY_ADDR  0x7800
 
 /* Console state */
 typedef struct {
