@@ -6,3 +6,5 @@ function(add_bios_test name)
 endfunction()
 
 add_bios_test(test_iobyte)
+add_bios_test(test_sector)
+add_bios_test(test_dpb)

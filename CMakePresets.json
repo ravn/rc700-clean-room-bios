@@ -14,6 +14,7 @@
     {
       "name": "z80",
       "displayName": "Z80 (z88dk via Docker)",
+      "hidden": true,
       "generator": "Unix Makefiles",
       "binaryDir": "${sourceDir}/build/z80",
       "toolchainFile": "/usr/local/share/z88dk/cmake/Toolchain-zcc.cmake",
