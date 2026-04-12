@@ -211,10 +211,12 @@ void bios_boot(void) {
     /* Step 1: Display + IM2 — get screen working first */
     console_init(&console_state, DISPLAY_BUF);
 
-#ifdef BIOS_WITH_CRT0
-    z80_setup_im2();
+    /* Set display ISR state BEFORE enabling our interrupts */
     display_isr_state.display_buf = console_state.display;
     display_isr_state.cursor_dirty = 1;
+
+#ifdef BIOS_WITH_CRT0
+    z80_setup_im2();  /* switches to our ISR vectors — ISR must see valid display_buf */
 #endif
     hal_ei();
 
