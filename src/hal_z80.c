@@ -24,6 +24,7 @@ byte hal_in(byte port) {
         ld c, a
         in l, (c)       ; return value in L
     __endasm;
+    return 0;  /* unreachable — silences warning */
 }
 
 void hal_di(void) {

@@ -5,7 +5,7 @@
 #define PIO_A_DATA  0x10
 
 void serial_ch_init(serial_ch_t *ch, byte ctrl_port, byte data_port) {
-    ringbuf_init(&ch->rx_ring, ch->rx_storage, SIO_MASK);
+    ringbuf_init(&ch->rx_ring, ch->rx_storage, (byte)SIO_MASK);
     ch->tx_ready = 0x00;
     ch->wr5_base = 0x60;  /* default: 8-bit TX */
     ch->rr0_cached = 0;

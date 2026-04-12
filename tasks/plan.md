@@ -87,6 +87,7 @@ Plain `assert()` based tests, no external framework. Each test file has `main()`
 ### Investigate later
 - Compiler inlining: check if small functions get inlined with current zcc flags
 - Switch statements: verify they produce optimal Z80 code vs if-else chains
+- GDB stub: investigate z88dk-gdb for Z80 debugging
 
 ### Phase 4 — HAL and Z80 target (DONE)
 10. [x] `hal_z80.c` — real Z80 I/O via SDCC inline asm
