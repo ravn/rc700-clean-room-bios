@@ -34,3 +34,10 @@ target_link_libraries(test_floppy PRIVATE bios_logic)
 target_include_directories(test_floppy PRIVATE ${CMAKE_SOURCE_DIR}/src ${CMAKE_CURRENT_SOURCE_DIR})
 target_compile_definitions(test_floppy PRIVATE TEST_IMAGE="${CMAKE_SOURCE_DIR}/disks/SW1711-I8.imd")
 add_test(NAME test_floppy COMMAND test_floppy)
+
+# Warm boot integration test — full disk I/O path with real IMD image
+add_executable(test_warmboot test_warmboot.c fdc_imd_adapter.c imd.c)
+target_link_libraries(test_warmboot PRIVATE bios_logic)
+target_include_directories(test_warmboot PRIVATE ${CMAKE_SOURCE_DIR}/src ${CMAKE_CURRENT_SOURCE_DIR})
+target_compile_definitions(test_warmboot PRIVATE TEST_IMAGE="${CMAKE_SOURCE_DIR}/disks/SW1711-I8.imd")
+add_test(NAME test_warmboot COMMAND test_warmboot)
