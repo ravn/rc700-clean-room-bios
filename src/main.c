@@ -208,11 +208,22 @@ static const char signon[] = "\x0C" "RC702 Clean Room BIOS v0.1\r\n";
 
 /* BOOT: Cold boot (Section 13.1) */
 void bios_boot(void) {
-    /* Initialize JTVARS from default CONFI block */
-    jtvars_init(&jtvars_local, confi_defaults);
-
-    /* Initialize all subsystems */
+    /* Step 1: Display + IM2 — get screen working first */
     console_init(&console_state, DISPLAY_BUF);
+
+#ifdef BIOS_WITH_CRT0
+    z80_setup_im2();
+    display_isr_state.display_buf = console_state.display;
+    display_isr_state.cursor_dirty = 1;
+#endif
+    hal_ei();
+
+    /* Step 2: Signon */
+    for (const char *p = signon; *p; p++)
+        crt_output((byte)*p);
+
+    /* Step 3: Initialize remaining subsystems */
+    jtvars_init(&jtvars_local, confi_defaults);
     console_state.adrmod = jtvars_local.adrmod;
     chartab_init_identity(&chartab_state);
     deblock_init(&deblock_state, host_disk_read, host_disk_write);
@@ -223,39 +234,24 @@ void bios_boot(void) {
     keyboard_init(&keyboard);
     floppy_init(&floppy_state);
 
-    /* Set up IM2 interrupt vectors using z88dk im2 library */
-#ifdef BIOS_WITH_CRT0
-    z80_setup_im2();
-#endif
+    /* Step 4: Hardware init */
+    hw_init_all(confi_defaults);
 
-    /* Sync display ISR state with console */
-    display_isr_state.display_buf = console_state.display;
-    display_isr_state.cursor_dirty = 1;
-    display_isr_state.curx = 0;
-    display_isr_state.cursy = 0;
-
-    hal_ei();
-
-    /* Display signon message (Section 13.1 step 3) */
-    for (const char *p = signon; *p; p++)
-        crt_output((byte)*p);
-
-    /* Drive format table from JTVARS */
+    /* Step 5: Remaining setup */
     last_format = 0xFF;
     cur_fspa = NULL;
     cur_fdf = NULL;
 
-    /* DCD auto-detection (Section 6.8) */
     byte rr0 = hal_in(SIO_B_RR0_PORT);
-    if (rr0 & SIO_B_DCD_BIT)
-        iobyte_val = IOBYTE_JOINED;
-    else
-        iobyte_val = IOBYTE_LOCAL;
+    iobyte_val = (rr0 & SIO_B_DCD_BIT) ? IOBYTE_JOINED : IOBYTE_LOCAL;
 
     cur_disk = 0;
     cur_track = 0;
     cur_sector = 0;
     cur_dma = (byte *)0x0080;
+
+    /* Step 6: Halt — don't proceed to warm boot yet */
+    for (;;) hal_ei();
 }
 
 /* CONST: Console status — returns 0xFF if char ready, 0x00 if not */

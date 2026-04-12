@@ -260,6 +260,9 @@ def make_loader_stub(bios_size):
     offset = sector_loop - (len(code) + 2)
     code.extend([0x10, offset & 0xFF])
 
+    # Set stack pointer for BIOS (Section 13.1: SP = 0xF500)
+    code.extend([0x31, 0x00, 0xF5])  # LD SP, 0xF500
+
     # JP 0xDA00
     code.extend([0xC3, 0x00, 0xDA])
 
