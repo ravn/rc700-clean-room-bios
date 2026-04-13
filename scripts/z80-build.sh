@@ -5,7 +5,7 @@ cd "$(dirname "$0")/.."
 mkdir -p build/z80
 
 SOURCES="src/crt0.asm src/iobyte.c src/sector.c src/dpb.c src/config.c src/deblock.c src/console.c src/chartab.c src/ringbuf.c src/serial.c src/floppy.c src/hwinit.c src/interrupt.c src/jtvars.c src/hal_z80.c src/main.c"
-FLAGS="-compiler=sdcc -mz80 -Cs--std-c23 -SO3 --opt-code-size -Isrc"
+FLAGS="-compiler=sdcc -mz80 -Cs--std-c23 -SO3 --opt-code-size '-Cs--sdcccall 1' -Isrc"
 
 echo "=== BIOS binary (with crt0 at 0xDA00) ==="
 docker run --rm --platform linux/amd64 \

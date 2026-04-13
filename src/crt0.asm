@@ -72,25 +72,79 @@ _z80_setup_im2:
 
     ; ---- ISR Vector Table Data (18 entries x 2 bytes) ----
     ; C ISR handlers use __interrupt keyword (SDCC generates RETI + reg saves).
+    ; Vector table layout must match device interrupt vector bases:
+    ;   PIO:  vectors 0x02, 0x04 (PIO base set to 0x02 by PROM)
+    ;   CTC:  vectors 0x08, 0x0A, 0x0C, 0x0E (CTC base set to 0x08 by PROM)
+    ;   SIO:  vectors 0x10-0x1E (SIO-B WR2 base = 0x10)
+    ;   PIO keyboard: vector 0x02
+    ;
+    ; Table index = vector_byte / 2
 _isr_vector_data:
-    DEFW _isr_dummy              ;  0: CTC Ch.0 (baud rate)
-    DEFW _isr_dummy              ;  1: CTC Ch.1 (baud rate)
-    DEFW _isr_display_refresh    ;  2: CTC Ch.2 (display refresh)
-    DEFW _isr_floppy_complete    ;  3: CTC Ch.3 (floppy complete)
-    DEFW _isr_dummy              ;  4: CTC2 Ch.0 (hard disk)
-    DEFW _isr_dummy              ;  5: CTC2 Ch.1
-    DEFW _isr_dummy              ;  6: CTC2 Ch.2
-    DEFW _isr_dummy              ;  7: CTC2 Ch.3
-    DEFW _isr_sio_b_tx           ;  8: SIO Ch.B TX
-    DEFW _isr_sio_b_ext          ;  9: SIO Ch.B EXT
-    DEFW _isr_sio_b_rx           ; 10: SIO Ch.B RX
-    DEFW _isr_sio_b_spec         ; 11: SIO Ch.B SPEC
-    DEFW _isr_sio_a_tx           ; 12: SIO Ch.A TX
-    DEFW _isr_sio_a_ext          ; 13: SIO Ch.A EXT
-    DEFW _isr_sio_a_rx           ; 14: SIO Ch.A RX
-    DEFW _isr_sio_a_spec         ; 15: SIO Ch.A SPEC
-    DEFW _isr_keyboard_handler   ; 16: PIO Ch.A (keyboard)
-    DEFW _isr_dummy              ; 17: PIO Ch.B (parallel)
+    DEFW _isr_dummy              ;  0: (unused)
+    DEFW _isr_keyboard_handler   ;  1: PIO Ch.A (keyboard) vector=0x02
+    DEFW _isr_dummy              ;  2: PIO Ch.B vector=0x04
+    DEFW _isr_dummy              ;  3: (unused)
+    DEFW _isr_dummy              ;  4: CTC Ch.0 (baud rate) vector=0x08
+    DEFW _isr_dummy              ;  5: CTC Ch.1 (baud rate) vector=0x0A
+    DEFW _isr_crt_fast           ;  6: CTC Ch.2 (display) vector=0x0C
+    DEFW _isr_floppy_complete    ;  7: CTC Ch.3 (floppy) vector=0x0E
+    DEFW _isr_sio_b_tx           ;  8: SIO Ch.B TX vector=0x10
+    DEFW _isr_sio_b_ext          ;  9: SIO Ch.B EXT vector=0x12
+    DEFW _isr_sio_b_rx           ; 10: SIO Ch.B RX vector=0x14
+    DEFW _isr_sio_b_spec         ; 11: SIO Ch.B SPEC vector=0x16
+    DEFW _isr_sio_a_tx           ; 12: SIO Ch.A TX vector=0x18
+    DEFW _isr_sio_a_ext          ; 13: SIO Ch.A EXT vector=0x1A
+    DEFW _isr_sio_a_rx           ; 14: SIO Ch.A RX vector=0x1C
+    DEFW _isr_sio_a_spec         ; 15: SIO Ch.A SPEC vector=0x1E
+    DEFW _isr_dummy              ; 16: PIO Ch.A alt (keyboard) vector=0x20
+    DEFW _isr_dummy              ; 17: PIO Ch.B alt vector=0x22
+
+    ; ---- Fast display refresh ISR (replaces C version) ----
+    ; Must reprogram DMA Ch2 immediately after 8275 VRTC interrupt.
+    ; Matches the PROM's DISINT routine — all inline, no C calls.
+_isr_crt_fast:
+    push af
+    in   a, (001H)          ; read 8275 status to acknowledge interrupt
+
+    push hl
+    push de
+    push bc
+
+    ; Mask DMA channels 2 and 3
+    ld   a, 006H
+    out  (0FAH), a          ; mask ch.2
+    ld   a, 007H
+    out  (0FAH), a          ; mask ch.3
+    out  (0FCH), a          ; clear byte pointer flip-flop (value ignored)
+
+    ; Ch2 address = 0xF800 (display buffer)
+    ld   a, 000H
+    out  (0F4H), a          ; ch.2 addr low
+    ld   a, 0F8H
+    out  (0F4H), a          ; ch.2 addr high
+
+    ; Ch2 word count = 1999
+    ld   a, 0CFH
+    out  (0F5H), a          ; ch.2 count low
+    ld   a, 007H
+    out  (0F5H), a          ; ch.2 count high
+
+    ; Unmask ch.2
+    ld   a, 002H
+    out  (0FAH), a
+
+    ; Re-arm CTC Ch.2
+    ld   a, 0D7H
+    out  (00EH), a          ; counter mode, int enabled
+    ld   a, 001H
+    out  (00EH), a          ; count = 1
+
+    pop  bc
+    pop  de
+    pop  hl
+    pop  af
+    ei
+    reti
 
     ; ---- Dummy ISR for unused vectors ----
 _isr_dummy:

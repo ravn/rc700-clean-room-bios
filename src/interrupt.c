@@ -22,7 +22,7 @@ void isr_reprogram_display_dma(void) {
     hal_out(0xF5, 0xCF);      /* ch.2 count low (1999 & 0xFF) */
     hal_out(0xF5, 0x07);      /* ch.2 count high (1999 >> 8) */
 
-    hal_out(0xFA, 0x02);  /* unmask ch.2 only */
+    hal_out(0xFA, 0x02);  /* unmask ch.2 */
 }
 
 void isr_update_cursor(void) {

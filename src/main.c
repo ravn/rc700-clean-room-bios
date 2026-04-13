@@ -236,8 +236,8 @@ void bios_boot(void) {
     keyboard_init(&keyboard);
     floppy_init(&floppy_state);
 
-    /* Step 4: Hardware init */
-    hw_init_all(confi_defaults);
+    /* Step 4: Don't reset the 8275 — the PROM already configured it.
+     * Our display ISR will reprogram DMA to 0xF800 on the next frame. */
 
     /* Step 5: Remaining setup */
     last_format = 0xFF;
