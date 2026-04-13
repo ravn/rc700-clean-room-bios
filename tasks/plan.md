@@ -1,111 +1,68 @@
-# Plan: CLion Project Setup with Native Test Harness + Z80 Cross-Compilation
+# Plan: RC702 Clean Room BIOS Implementation
 
-## Context
+## Completed Phases
 
-The RC700 cleanroom BIOS project currently has only the specification document and no build infrastructure. The user wants to implement the BIOS in C, with CLion as the IDE. The BIOS logic should be testable natively on the host (macOS, gcc/clang) and cross-compilable to Z80 via z88dk/zsdcc in Docker. The z88dk `ticks` simulator provides an additional Z80-level smoke test layer.
+### Phase 1 — Project scaffold (DONE)
+1. [x] CMake + CLion preset, HAL abstraction, test harness
+2. [x] `iobyte.c` + `test_iobyte.c`
 
-## Directory Structure
-
-```
-rc700-cleanroom-bios/
-  CMakeLists.txt            # Top-level: native vs z80 detection
-  CMakePresets.json         # CLion presets: native + z80
-  .gitignore
-  src/
-    CMakeLists.txt          # Builds bios_logic library (native) or bios binary (z80)
-    hal.h                   # Hardware abstraction layer interface
-    iobyte.h / iobyte.c    # IOBYTE bit-field parsing and dispatch
-    sector.h / sector.c    # Sector translation tables
-    dpb.h / dpb.c          # Disk Parameter Blocks, FSPA, format dispatch
-    deblock.h / deblock.c  # Sector deblocking algorithm
-    console.h / console.c  # Cursor, control chars, scroll, XY escape
-    chartab.h / chartab.c  # Character conversion tables
-    config.h / config.c    # CONFI block parsing, baud rate tables
-  test/
-    CMakeLists.txt          # Native-only test executables
-    hal_mock.h / hal_mock.c # Mock HAL for tests
-    test_iobyte.c           # One file per module, each has main()
-    test_sector.c
-    test_dpb.c
-    test_deblock.c
-    test_console.c
-    test_chartab.c
-    test_config.c
-  scripts/
-    z80-build.sh            # Docker wrapper for z88dk cmake build
-    z80-ticks.sh            # Docker wrapper for ticks simulator
-```
-
-## Architecture: HAL Abstraction
-
-All hardware I/O goes through `hal.h`:
-- `hal_out(port, value)` / `hal_in(port)` — port I/O
-- `hal_di()` / `hal_ei()` — interrupt control
-- `hal_display_buffer()` / `hal_workarea()` — memory-mapped regions
-
-Two implementations:
-- `hal_mock.c` (test/) — arrays + logging, test helpers to inspect state
-- `hal_z80.c` (src/, later) — real Z80 I/O via inline asm
-
-Portable logic modules (iobyte, sector, dpb, deblock, console, chartab, config) never touch hardware directly.
-
-## CMake Setup
-
-**Top-level CMakeLists.txt:** Detects Z80 via `CMAKE_SYSTEM_PROCESSOR`. Adds `src/` always, `test/` only for native.
-
-**src/CMakeLists.txt:** Builds `bios_logic` static library (native) or `bios` executable (z80).
-
-**test/CMakeLists.txt:** Each `test_*.c` is a standalone executable linked against `bios_logic` + `hal_mock`, registered with CTest.
-
-**CMakePresets.json:** Two configure presets:
-- `native` — Unix Makefiles, Debug, build/native/
-- `z80` — Unix Makefiles, uses z88dk toolchain file (runs inside Docker)
-
-CLion opens the native preset directly. Z80 builds run via `scripts/z80-build.sh`.
-
-## Test Approach
-
-Plain `assert()` based tests, no external framework. Each test file has `main()`, returns 0 on success. CTest runs all. CLion's test panel shows results.
-
-## Implementation Phases
-
-### Phase 1 — Data tables and pure logic (DONE)
-1. [x] Project scaffold (CMake, presets, .gitignore)
-2. [x] HAL interface + mock
-3. [x] `iobyte.c` + `test_iobyte.c`
-
-### Phase 2 — More pure logic modules
-4. [x] `sector.c` + `test_sector.c` — sector translation tables
-5. [x] `dpb.c` + `test_dpb.c` — DPB/FSPA/FDF structures, format dispatch
-6. [x] `config.c` + `test_config.c` — CONFI block parsing, baud rate tables
+### Phase 2 — Pure logic modules (DONE)
+3. [x] `sector.c` + `test_sector.c` — sector translation tables
+4. [x] `dpb.c` + `test_dpb.c` — DPB/FSPA/FDF structures
+5. [x] `config.c` + `test_config.c` — CONFI block parsing, baud rate tables
 
 ### Phase 3 — Stateful logic (DONE)
-7. [x] `console.c` + `test_console.c` — cursor, control chars, scrolling, XY escape, background bitmap
-8. [x] `deblock.c` + `test_deblock.c` — sector deblocking algorithm (DR Appendix G)
-9. [x] `chartab.c` + `test_chartab.c` — character conversion tables
+6. [x] `console.c` + `test_console.c` — cursor, control chars, scrolling, XY escape, background bitmap
+7. [x] `deblock.c` + `test_deblock.c` — sector deblocking algorithm
+8. [x] `chartab.c` + `test_chartab.c` — character conversion tables
 
-### Investigate later
-- Compiler inlining: check if small functions get inlined with current zcc flags
-- Switch statements: verify they produce optimal Z80 code vs if-else chains
-- GDB stub: investigate z88dk-gdb for Z80 debugging
-- IM2 consistency: verify that the interrupt vector table entries match the CTC/SIO/PIO vector base programming
-- sdcccall(1): investigate if the newer SDCC calling convention produces smaller code for our use case
-- Build CP/M CCP+BDOS configured for the current BIOS TPA (0x0100-0xC000)
-- Optimize BIOS to fit at 0xDA00 (target ~5KB code+rodata)
+### Phase 4 — Drivers and Z80 target (DONE)
+9. [x] Ring buffers, serial driver, floppy driver
+10. [x] Hardware init, interrupt handlers, JTVARS
+11. [x] Z80 build with crt0.asm jump table
+12. [x] FDC simulator + IMD reader for native testing
+13. [x] Warm boot test verified byte-for-byte against real disk image
 
-### Phase 4 — HAL and Z80 target (DONE)
-10. [x] `hal_z80.c` — real Z80 I/O via SDCC inline asm
-11. [x] `main.c` — BIOS entry points + ticks smoke test (stub I/O)
-12. [x] Z80 Docker build producing a binary (9KB with test CRT, ~5KB BIOS code)
-13. [x] Ticks smoke test — all assertions pass (exit 0, 213K ticks)
+### Phase 5 — MAME integration (IN PROGRESS)
+14. [x] BIOS boots in MAME and displays signon message
+15. [x] Display refresh ISR working (fast assembly in crt0.asm)
+16. [x] sdcccall(1) calling convention — 1,105 bytes saved
+17. [ ] Keyboard input from MAME
+18. [ ] Warm boot — load CCP+BDOS from disk
+19. [ ] CP/M prompt working in MAME
 
-### Phase 5 — Integration
-14. [ ] Test in MAME rc702 driver
-15. [ ] Test on physical hardware
+## Known Issues
 
-## Verification
+### SDCC code generation bug
+SDCC (z88dk zsdcc) generates incorrect code for inline expressions
+passed as function parameters:
+```c
+hal_out(0xF4, (byte)(disp_addr >> 8));  // HIGH BYTE LOST
+```
+The shift result is dropped during stack-based parameter passing.
+Workaround: pre-compute into local variables before calling.
+TODO: File upstream bug report.
 
-1. `cmake --preset native && cmake --build --preset native` succeeds
-2. `ctest --preset native` runs all tests and passes
-3. CLion can open the project and run/debug tests
-4. `scripts/z80-build.sh` builds (if Docker available, otherwise deferred)
+### CONFI PAR3/PAR4 values differ from PROM
+The CONFI default CRT parameters (PAR3=0x7A, PAR4=0x6D) differ from
+what the PROM uses (PAR3=0x9A, PAR4=0x5D). The PROM values work;
+the CONFI values break the display. Need to investigate which is
+correct for the physical hardware. Currently skipping 8275 reset
+and relying on PROM's configuration.
+
+### BIOS too large for 0xDA00
+BIOS code+rodata = 8,662 bytes (with sdcccall(1)). Original BIOS
+fits in ~5KB at 0xDA00. Currently using 0xC000 as temporary base.
+Need to optimize to fit at 0xDA00 for standard CP/M memory map.
+
+### hw_init_all disabled
+Hardware initialization (PIO/CTC/SIO/DMA/FDC/8275) is currently
+skipped because the PROM already configured everything. Need to
+enable for standalone boot (without PROM).
+
+## Investigate Later
+- Compiler inlining with zcc flags
+- Switch statement Z80 code quality
+- z88dk-gdb for Z80 debugging
+- Build CP/M CCP+BDOS for current TPA (0x0100-0xC000)
+- Optimize BIOS to fit at 0xDA00 (target ~5KB)
