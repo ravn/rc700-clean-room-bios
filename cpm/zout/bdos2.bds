@@ -1,0 +1,6859 @@
+binary-debuggable-source
+0000 0000 f bdos2.asm
+0000 0000 s 	title	'Bdos Interface, Bdos, Version 2.2 Feb, 1980'
+0000 0000 s ;*****************************************************************
+0000 0000 s ;*****************************************************************
+0000 0000 s ;**                                                             **
+0000 0000 s ;**   B a s i c    D i s k   O p e r a t i n g   S y s t e m    **
+0000 0000 s ;**            I n t e r f a c e   M o d u l e                   **
+0000 0000 s ;**                                                             **
+0000 0000 s ;*****************************************************************
+0000 0000 s ;*****************************************************************
+0000 0000 s ;
+0000 0000 s ;	Copyright (c) 1978, 1979, 1980
+0000 0000 s ;	Digital Research
+0000 0000 s ;	Box 579, Pacific Grove
+0000 0000 s ;	California
+0000 0000 s ;
+0000 0000 s ;
+0000 0000 s ;      20 january 1980
+0000 0000 s ;
+0000 0000 s ;	Modifications by Michael Ringgaard, October 2015:
+0000 0000 s ;	 - origin changed from 0800h to 0cc00h
+0000 0000 s ;
+0000 0000 s on	equ	0ffffh
+0000 0000 s off	equ	00000h
+0000 0000 s test	equ	off
+0000 0000 s ;
+0000 0000 s 	if	test
+0000 0000 s 	org	0dc00h
+0000 0000 s 	else
+b200 b200 s 	org	0b200h
+b200 b200 s 	endif
+b200 b200 s ;	bios value defined at end of module
+b200 b200 s ;
+b200 b200 s ssize	equ	24		;24 level stack
+b200 b200 s ;
+b200 b200 s ;	low memory locations
+b200 b200 s reboot	equ	0000h		;reboot system
+b200 b200 s ioloc	equ	0003h		;i/o byte location
+b200 b200 s bdosa	equ	0006h		;address field of jmp BDOS
+b200 b200 s ;
+b200 b200 s ;	bios access constants
+b200 b200 s bootf	set	bios+3*0	;cold boot function
+b200 b200 s wbootf	set	bios+3*1	;warm boot function
+b200 b200 s constf	set	bios+3*2	;console status function
+b200 b200 s coninf	set	bios+3*3	;console input function
+b200 b200 s conoutf	set	bios+3*4	;console output function
+b200 b200 s listf	set	bios+3*5	;list output function
+b200 b200 s punchf	set	bios+3*6	;punch output function
+b200 b200 s readerf	set	bios+3*7	;reader input function
+b200 b200 s homef	set	bios+3*8	;disk home function
+b200 b200 s seldskf	set	bios+3*9	;select disk function
+b200 b200 s settrkf	set	bios+3*10	;set track function
+b200 b200 s setsecf	set	bios+3*11	;set sector function
+b200 b200 s setdmaf	set	bios+3*12	;set dma function
+b200 b200 s readf	set	bios+3*13	;read disk function
+b200 b200 s writef	set	bios+3*14	;write disk function
+b200 b200 s liststf	set	bios+3*15	;list status function
+b200 b200 s sectran	set	bios+3*16	;sector translate
+b200 b200 s ;
+b200 b200 s ;	equates for non graphic characters
+b200 b200 s ctlc	equ	03h	;control c
+b200 b200 s ctle	equ	05h	;physical eol
+b200 b200 s ctlh	equ	08h	;backspace
+b200 b200 s ctlp	equ	10h	;prnt toggle
+b200 b200 s ctlr	equ	12h	;repeat line
+b200 b200 s ctls	equ	13h	;stop/start screen
+b200 b200 s ctlu	equ	15h	;line delete
+b200 b200 s ctlx	equ	18h	;=ctl-u
+b200 b200 s ctlz	equ	1ah	;end of file
+b200 b200 s rubout	equ	7fh	;char delete
+b200 b200 s tab	equ	09h	;tab char
+b200 b200 s cr	equ	0dh	;carriage return
+b200 b200 s lf	equ	0ah	;line feed
+b200 b200 s ctl	equ	5eh	;up arrow
+b200 b200 s ;
+b200 b200 d 000000000000
+b200 b200 u 06 02
+b200 b200 s 	db	0,0,0,0,0,0
+b206 b206 s ;
+b206 b206 s ;	enter here from the user's program with function number in c,
+b206 b206 s ;	and information address in d,e
+b206 b206 d c311b2
+b206 b206 u 03 01
+b206 b206 s 	jmp	bdose	;past parameter block
+b209 b209 s ;
+b209 b209 s ;	************************************************
+b209 b209 s ;	*** relative locations 0009 - 000e           ***
+b209 b209 s ;	************************************************
+b209 b209 d 99b2
+b209 b209 u 02 02
+b209 b209 s pererr:	dw	persub	;permanent error subroutine
+b20b b20b d a5b2
+b20b b20b u 02 02
+b20b b20b s selerr:	dw	selsub	;select error subroutine
+b20d b20d d abb2
+b20d b20d u 02 02
+b20d b20d s roderr:	dw	rodsub	;ro disk error subroutine
+b20f b20f d b1b2
+b20f b20f u 02 02
+b20f b20f s roferr:	dw	rofsub	;ro file error subroutine
+b211 b211 s ;
+b211 b211 s ;
+b211 b211 s bdose:	;arrive here from user programs
+b211 b211 d eb
+b211 b211 u 01 01
+b211 b211 s 	xchg!
+b212 b212 d 2243b5
+b212 b212 u 03 01
+b212 b212 s  shld info!
+b215 b215 d eb
+b215 b215 u 01 01
+b215 b215 s  xchg ;info=DE, DE=info
+b216 b216 d 7b
+b216 b216 u 01 01
+b216 b216 s 	mov a,e!
+b217 b217 d 32d6bf
+b217 b217 u 03 01
+b217 b217 s  sta linfo ;linfo = low(info) - don't equ
+b21a b21a d 210000
+b21a b21a u 03 01
+b21a b21a s 	lxi h,0!
+b21d b21d d 2245b5
+b21d b21d u 03 01
+b21d b21d s  shld aret ;return value defaults to 0000
+b220 b220 s 	;save user's stack pointer, set to local stack
+b220 b220 d 39
+b220 b220 u 01 01
+b220 b220 s 	dad sp!
+b221 b221 d 220fb5
+b221 b221 u 03 01
+b221 b221 s  shld entsp ;entsp = stackptr
+b224 b224 d 3141b5
+b224 b224 u 03 01
+b224 b224 s 	lxi sp,lstack ;local stack setup
+b227 b227 d af
+b227 b227 u 01 01
+b227 b227 s 	xra a!
+b228 b228 d 32e0bf
+b228 b228 u 03 01
+b228 b228 s  sta fcbdsk!
+b22b b22b d 32debf
+b22b b22b u 03 01
+b22b b22b s  sta resel ;fcbdsk,resel=false
+b22e b22e d 2174bf
+b22e b22e u 03 01
+b22e b22e s 	lxi h,goback ;return here after all functions
+b231 b231 d e5
+b231 b231 u 01 01
+b231 b231 s 	push h ;jmp goback equivalent to ret
+b232 b232 d 79
+b232 b232 u 01 01
+b232 b232 s 	mov a,c!
+b233 b233 d fe29
+b233 b233 u 02 01
+b233 b233 s  cpi nfuncs!
+b235 b235 d d0
+b235 b235 u 01 01
+b235 b235 s  rnc ;skip if invalid #
+b236 b236 d 4b
+b236 b236 u 01 01
+b236 b236 s 	mov c,e ;possible output character to C
+b237 b237 d 2147b2
+b237 b237 u 03 01
+b237 b237 s 	lxi h,functab!
+b23a b23a d 5f
+b23a b23a u 01 01
+b23a b23a s  mov e,a!
+b23b b23b d 1600
+b23b b23b u 02 01
+b23b b23b s  mvi d,0 ;DE=func, HL=.ciotab
+b23d b23d d 19
+b23d b23d u 01 01
+b23d b23d s 	dad d!
+b23e b23e d 19
+b23e b23e u 01 01
+b23e b23e s  dad d!
+b23f b23f d 5e
+b23f b23f u 01 01
+b23f b23f s  mov e,m!
+b240 b240 d 23
+b240 b240 u 01 01
+b240 b240 s  inx h!
+b241 b241 d 56
+b241 b241 u 01 01
+b241 b241 s  mov d,m ;DE=functab(func)
+b242 b242 d 2a43b5
+b242 b242 u 03 01
+b242 b242 s 		lhld info	;info in DE for later xchg	
+b245 b245 d eb
+b245 b245 u 01 01
+b245 b245 s 	xchg!
+b246 b246 d e9
+b246 b246 u 01 01
+b246 b246 s  pchl ;dispatched
+b247 b247 s ;
+b247 b247 s ;	dispatch table for functions
+b247 b247 s functab:
+b247 b247 d 03c0c8b490b3ceb4
+b247 b247 u 08 02
+b247 b247 s 	dw	wbootf, func1, func2, func3
+b24f b24f d 12c00fc0d4b4edb4
+b24f b24f u 08 02
+b24f b24f s 	dw	punchf, listf, func6, func7
+b257 b257 d f3b4f8b4e1b3feb4
+b257 b257 u 08 02
+b257 b257 s 	dw	func8, func9, func10,func11
+b25f b25f s diskf	equ	($-functab)/2	;disk funcs
+b25f b25f d 7ebe83be45be9cbe
+b25f b25f u 08 02
+b25f b25f s 	dw	func12,func13,func14,func15
+b267 b267 d a5beabbec8bed7be
+b267 b267 u 08 02
+b267 b267 s 	dw	func16,func17,func18,func19
+b26f b26f d e0bee6beecbef5be
+b26f b26f u 08 02
+b26f b26f s 	dw	func20,func21,func22,func23
+b277 b277 d febe04bf0abf11bf
+b277 b277 u 08 02
+b277 b277 s 	dw	func24,func25,func26,func27
+b27f b27f d 2cb717bf1dbf26bf
+b27f b27f u 08 02
+b27f b27f s 	dw	func28,func29,func30,func31
+b287 b287 d 2dbf41bf47bf4dbf
+b287 b287 u 08 02
+b287 b287 s 	dw	func32,func33,func34,func35
+b28f b28f d 0ebe53bf04b504b5
+b28f b28f u 08 02
+b28f b28f s 	dw	func36,func37,func38,func39		;
+b297 b297 d 9bbf
+b297 b297 u 02 02
+b297 b297 s 	dw	func40					;
+b299 b299 s nfuncs	equ	($-functab)/2
+b299 b299 s ;
+b299 b299 s ;
+b299 b299 s ;	error subroutines
+b299 b299 s persub:	;report permanent error
+b299 b299 d 21cab2
+b299 b299 u 03 01
+b299 b299 s 	lxi h,permsg!
+b29c b29c d cde5b2
+b29c b29c u 03 01
+b29c b29c s  call errflg ;to report the error
+b29f b29f d fe03
+b29f b29f u 02 01
+b29f b29f s 	cpi ctlc!
+b2a1 b2a1 d ca0000
+b2a1 b2a1 u 03 01
+b2a1 b2a1 s  jz reboot ;reboot if response is ctlc
+b2a4 b2a4 d c9
+b2a4 b2a4 u 01 01
+b2a4 b2a4 s 	ret ;and ignore the error
+b2a5 b2a5 s ;
+b2a5 b2a5 s selsub:	;report select error
+b2a5 b2a5 d 21d5b2
+b2a5 b2a5 u 03 01
+b2a5 b2a5 s 	lxi h,selmsg!
+b2a8 b2a8 d c3b4b2
+b2a8 b2a8 u 03 01
+b2a8 b2a8 s  jmp wait$err ;wait console before boot
+b2ab b2ab s ;
+b2ab b2ab s rodsub:	;report write to read/only disk
+b2ab b2ab d 21e1b2
+b2ab b2ab u 03 01
+b2ab b2ab s 	lxi h,rodmsg!
+b2ae b2ae d c3b4b2
+b2ae b2ae u 03 01
+b2ae b2ae s  jmp wait$err ;wait console
+b2b1 b2b1 s ;
+b2b1 b2b1 s rofsub:	;report read/only file
+b2b1 b2b1 d 21dcb2
+b2b1 b2b1 u 03 01
+b2b1 b2b1 s 	lxi h,rofmsg ;drop through to wait for console
+b2b4 b2b4 s ;
+b2b4 b2b4 s wait$err:
+b2b4 b2b4 s 	;wait for response before boot
+b2b4 b2b4 d cde5b2
+b2b4 b2b4 u 03 01
+b2b4 b2b4 s 	call errflg!
+b2b7 b2b7 d c30000
+b2b7 b2b7 u 03 01
+b2b7 b2b7 s  jmp reboot
+b2ba b2ba s ;
+b2ba b2ba s ;	error messages
+b2ba b2ba d 42646f7320457272204f6e20
+b2ba b2ba u 0c 02
+b2ba b2ba s dskmsg:	db	'Bdos Err On '
+b2c6 b2c6 d 203a2024
+b2c6 b2c6 u 04 02
+b2c6 b2c6 s dskerr:	db	' : $'	;filled in by errflg
+b2ca b2ca d 42616420536563746f7224
+b2ca b2ca u 0b 02
+b2ca b2ca s permsg:	db	'Bad Sector$'
+b2d5 b2d5 d 53656c65637424
+b2d5 b2d5 u 07 02
+b2d5 b2d5 s selmsg:	db	'Select$'
+b2dc b2dc d 46696c6520
+b2dc b2dc u 05 02
+b2dc b2dc s rofmsg:	db	'File '
+b2e1 b2e1 d 522f4f24
+b2e1 b2e1 u 04 02
+b2e1 b2e1 s rodmsg:	db	'R/O$'
+b2e5 b2e5 s ;
+b2e5 b2e5 s ;
+b2e5 b2e5 s errflg:
+b2e5 b2e5 s 	;report error to console, message address in HL
+b2e5 b2e5 d e5
+b2e5 b2e5 u 01 01
+b2e5 b2e5 s 	push h!
+b2e6 b2e6 d cdc9b3
+b2e6 b2e6 u 03 01
+b2e6 b2e6 s  call crlf ;stack mssg address, new line
+b2e9 b2e9 d 3a42b5
+b2e9 b2e9 u 03 01
+b2e9 b2e9 s 	lda curdsk!
+b2ec b2ec d c641
+b2ec b2ec u 02 01
+b2ec b2ec s  adi 'A'!
+b2ee b2ee d 32c6b2
+b2ee b2ee u 03 01
+b2ee b2ee s  sta dskerr ;current disk name
+b2f1 b2f1 d 01bab2
+b2f1 b2f1 u 03 01
+b2f1 b2f1 s 	lxi b,dskmsg!
+b2f4 b2f4 d cdd3b3
+b2f4 b2f4 u 03 01
+b2f4 b2f4 s  call print ;the error message
+b2f7 b2f7 d c1
+b2f7 b2f7 u 01 01
+b2f7 b2f7 s 	pop b!
+b2f8 b2f8 d cdd3b3
+b2f8 b2f8 u 03 01
+b2f8 b2f8 s  call print ;error mssage tail
+b2fb b2fb s 	;jmp conin ;to get the input character			
+b2fb b2fb s 	;(drop through to conin)
+b2fb b2fb s 	;ret
+b2fb b2fb s ;
+b2fb b2fb s ;
+b2fb b2fb s ;	console handlers
+b2fb b2fb s conin:
+b2fb b2fb s 	;read console character to A
+b2fb b2fb d 210eb5
+b2fb b2fb u 03 01
+b2fb b2fb s 	lxi h,kbchar!
+b2fe b2fe d 7e
+b2fe b2fe u 01 01
+b2fe b2fe s  mov a,m!
+b2ff b2ff d 3600
+b2ff b2ff u 02 01
+b2ff b2ff s  mvi m,0!
+b301 b301 d b7
+b301 b301 u 01 01
+b301 b301 s  ora a!
+b302 b302 d c0
+b302 b302 u 01 01
+b302 b302 s  rnz
+b303 b303 s 	;no previous keyboard character ready
+b303 b303 d c309c0
+b303 b303 u 03 01
+b303 b303 s 	jmp coninf ;get character externally
+b306 b306 s 	;ret
+b306 b306 s ;
+b306 b306 s conech:
+b306 b306 s 	;read character with echo
+b306 b306 d cdfbb2
+b306 b306 u 03 01
+b306 b306 s 	call conin!
+b309 b309 d cd14b3
+b309 b309 u 03 01
+b309 b309 s  call echoc!
+b30c b30c d d8
+b30c b30c u 01 01
+b30c b30c s  rc ;echo character?
+b30d b30d s         ;character must be echoed before return
+b30d b30d d f5
+b30d b30d u 01 01
+b30d b30d s 	push psw!
+b30e b30e d 4f
+b30e b30e u 01 01
+b30e b30e s  mov c,a!
+b30f b30f d cd90b3
+b30f b30f u 03 01
+b30f b30f s  call tabout!
+b312 b312 d f1
+b312 b312 u 01 01
+b312 b312 s  pop psw
+b313 b313 d c9
+b313 b313 u 01 01
+b313 b313 s 	ret ;with character in A
+b314 b314 s ;
+b314 b314 s echoc:
+b314 b314 s 	;echo character if graphic
+b314 b314 s 	;cr, lf, tab, or backspace
+b314 b314 d fe0d
+b314 b314 u 02 01
+b314 b314 s 	cpi cr!
+b316 b316 d c8
+b316 b316 u 01 01
+b316 b316 s  rz ;carriage return?
+b317 b317 d fe0a
+b317 b317 u 02 01
+b317 b317 s 	cpi lf!
+b319 b319 d c8
+b319 b319 u 01 01
+b319 b319 s  rz ;line feed?
+b31a b31a d fe09
+b31a b31a u 02 01
+b31a b31a s 	cpi tab!
+b31c b31c d c8
+b31c b31c u 01 01
+b31c b31c s  rz ;tab?
+b31d b31d d fe08
+b31d b31d u 02 01
+b31d b31d s 	cpi ctlh!
+b31f b31f d c8
+b31f b31f u 01 01
+b31f b31f s  rz ;backspace?
+b320 b320 d fe20
+b320 b320 u 02 01
+b320 b320 s 	cpi ' '!
+b322 b322 d c9
+b322 b322 u 01 01
+b322 b322 s  ret ;carry set if not graphic
+b323 b323 s ;
+b323 b323 s conbrk:	;check for character ready
+b323 b323 d 3a0eb5
+b323 b323 u 03 01
+b323 b323 s 	lda kbchar!
+b326 b326 d b7
+b326 b326 u 01 01
+b326 b326 s  ora a!
+b327 b327 d c245b3
+b327 b327 u 03 01
+b327 b327 s  jnz conb1 ;skip if active kbchar
+b32a b32a s 		;no active kbchar, check external break
+b32a b32a d cd06c0
+b32a b32a u 03 01
+b32a b32a s 		call constf!
+b32d b32d d e601
+b32d b32d u 02 01
+b32d b32d s  ani 1!
+b32f b32f d c8
+b32f b32f u 01 01
+b32f b32f s  rz ;return if no char ready
+b330 b330 s 		;character ready, read it
+b330 b330 d cd09c0
+b330 b330 u 03 01
+b330 b330 s 		call coninf ;to A
+b333 b333 d fe13
+b333 b333 u 02 01
+b333 b333 s 		cpi ctls!
+b335 b335 d c242b3
+b335 b335 u 03 01
+b335 b335 s  jnz conb0 ;check stop screen function
+b338 b338 s 		;found ctls, read next character
+b338 b338 d cd09c0
+b338 b338 u 03 01
+b338 b338 s 		call coninf ;to A
+b33b b33b d fe03
+b33b b33b u 02 01
+b33b b33b s 		cpi ctlc!
+b33d b33d d ca0000
+b33d b33d u 03 01
+b33d b33d s  jz reboot ;ctlc implies re-boot
+b340 b340 s 		;not a reboot, act as if nothing has happened
+b340 b340 d af
+b340 b340 u 01 01
+b340 b340 s 		xra a!
+b341 b341 d c9
+b341 b341 u 01 01
+b341 b341 s  ret ;with zero in accumulator
+b342 b342 s 	conb0:
+b342 b342 s 		;character in accum, save it
+b342 b342 d 320eb5
+b342 b342 u 03 01
+b342 b342 s 		sta kbchar
+b345 b345 s 	conb1:
+b345 b345 s 		;return with true set in accumulator
+b345 b345 d 3e01
+b345 b345 u 02 01
+b345 b345 s 		mvi a,1!
+b347 b347 d c9
+b347 b347 u 01 01
+b347 b347 s  ret
+b348 b348 s ;
+b348 b348 s conout:
+b348 b348 s 	;compute character position/write console char from C
+b348 b348 s 	;compcol = true if computing column position
+b348 b348 d 3a0ab5
+b348 b348 u 03 01
+b348 b348 s 	lda compcol!
+b34b b34b d b7
+b34b b34b u 01 01
+b34b b34b s  ora a!
+b34c b34c d c262b3
+b34c b34c u 03 01
+b34c b34c s  jnz compout
+b34f b34f s 		;write the character, then compute the column
+b34f b34f s 		;write console character from C
+b34f b34f d c5
+b34f b34f u 01 01
+b34f b34f s 		push b!
+b350 b350 d cd23b3
+b350 b350 u 03 01
+b350 b350 s  call conbrk ;check for screen stop function
+b353 b353 d c1
+b353 b353 u 01 01
+b353 b353 s 		pop b!
+b354 b354 d c5
+b354 b354 u 01 01
+b354 b354 s  push b ;recall/save character
+b355 b355 d cd0cc0
+b355 b355 u 03 01
+b355 b355 s 		call conoutf ;externally, to console
+b358 b358 d c1
+b358 b358 u 01 01
+b358 b358 s 		pop b!
+b359 b359 d c5
+b359 b359 u 01 01
+b359 b359 s  push b ;recall/save character
+b35a b35a s 		;may be copying to the list device
+b35a b35a d 3a0db5
+b35a b35a u 03 01
+b35a b35a s 		lda listcp!
+b35d b35d d b7
+b35d b35d u 01 01
+b35d b35d s  ora a!
+b35e b35e d c40fc0
+b35e b35e u 03 01
+b35e b35e s  cnz listf ;to printer, if so
+b361 b361 d c1
+b361 b361 u 01 01
+b361 b361 s 		pop b ;recall the character
+b362 b362 s 	compout:
+b362 b362 d 79
+b362 b362 u 01 01
+b362 b362 s 		mov a,c ;recall the character
+b363 b363 s 		;and compute column position
+b363 b363 d 210cb5
+b363 b363 u 03 01
+b363 b363 s 		lxi h,column ;A = char, HL = .column
+b366 b366 d fe7f
+b366 b366 u 02 01
+b366 b366 s 		cpi rubout!
+b368 b368 d c8
+b368 b368 u 01 01
+b368 b368 s  rz ;no column change if nulls
+b369 b369 d 34
+b369 b369 u 01 01
+b369 b369 s 		inr m ;column = column + 1
+b36a b36a d fe20
+b36a b36a u 02 01
+b36a b36a s 		cpi ' '!
+b36c b36c d d0
+b36c b36c u 01 01
+b36c b36c s  rnc ;return if graphic
+b36d b36d s 		;not graphic, reset column position
+b36d b36d d 35
+b36d b36d u 01 01
+b36d b36d s 		dcr m ;column = column - 1
+b36e b36e d 7e
+b36e b36e u 01 01
+b36e b36e s 		mov a,m!
+b36f b36f d b7
+b36f b36f u 01 01
+b36f b36f s  ora a!
+b370 b370 d c8
+b370 b370 u 01 01
+b370 b370 s  rz ;return if at zero
+b371 b371 s 		;not at zero, may be backspace or end line
+b371 b371 d 79
+b371 b371 u 01 01
+b371 b371 s 		mov a,c ;character back to A
+b372 b372 d fe08
+b372 b372 u 02 01
+b372 b372 s 		cpi ctlh!
+b374 b374 d c279b3
+b374 b374 u 03 01
+b374 b374 s  jnz notbacksp
+b377 b377 s 			;backspace character
+b377 b377 d 35
+b377 b377 u 01 01
+b377 b377 s 			dcr m ;column = column - 1
+b378 b378 d c9
+b378 b378 u 01 01
+b378 b378 s 			ret
+b379 b379 s 		notbacksp:
+b379 b379 s 			;not a backspace character, eol?
+b379 b379 d fe0a
+b379 b379 u 02 01
+b379 b379 s 			cpi lf!
+b37b b37b d c0
+b37b b37b u 01 01
+b37b b37b s  rnz ;return if not
+b37c b37c s 			;end of line, column = 0
+b37c b37c d 3600
+b37c b37c u 02 01
+b37c b37c s 			mvi m,0 ;column = 0
+b37e b37e d c9
+b37e b37e u 01 01
+b37e b37e s 		ret
+b37f b37f s ;
+b37f b37f s ctlout:
+b37f b37f s 	;send C character with possible preceding up-arrow
+b37f b37f d 79
+b37f b37f u 01 01
+b37f b37f s 	mov a,c!
+b380 b380 d cd14b3
+b380 b380 u 03 01
+b380 b380 s  call echoc ;cy if not graphic (or special case)
+b383 b383 d d290b3
+b383 b383 u 03 01
+b383 b383 s 	jnc tabout ;skip if graphic, tab, cr, lf, or ctlh
+b386 b386 s 		;send preceding up arrow
+b386 b386 d f5
+b386 b386 u 01 01
+b386 b386 s 		push psw!
+b387 b387 d 0e5e
+b387 b387 u 02 01
+b387 b387 s  mvi c,ctl!
+b389 b389 d cd48b3
+b389 b389 u 03 01
+b389 b389 s  call conout ;up arrow
+b38c b38c d f1
+b38c b38c u 01 01
+b38c b38c s 		pop psw!
+b38d b38d d f640
+b38d b38d u 02 01
+b38d b38d s  ori 40h ;becomes graphic letter
+b38f b38f d 4f
+b38f b38f u 01 01
+b38f b38f s 		mov c,a ;ready to print
+b390 b390 s 		;(drop through to tabout)
+b390 b390 s ;
+b390 b390 s tabout:
+b390 b390 s 	;expand tabs to console
+b390 b390 d 79
+b390 b390 u 01 01
+b390 b390 s 	mov a,c!
+b391 b391 d fe09
+b391 b391 u 02 01
+b391 b391 s  cpi tab!
+b393 b393 d c248b3
+b393 b393 u 03 01
+b393 b393 s  jnz conout ;direct to conout if not
+b396 b396 s 		;tab encountered, move to next tab position
+b396 b396 s 	tab0:
+b396 b396 d 0e20
+b396 b396 u 02 01
+b396 b396 s 		mvi c,' '!
+b398 b398 d cd48b3
+b398 b398 u 03 01
+b398 b398 s  call conout ;another blank
+b39b b39b d 3a0cb5
+b39b b39b u 03 01
+b39b b39b s 		lda column!
+b39e b39e d e607
+b39e b39e u 02 01
+b39e b39e s  ani 111b ;column mod 8 = 0 ?
+b3a0 b3a0 d c296b3
+b3a0 b3a0 u 03 01
+b3a0 b3a0 s 		jnz tab0 ;back for another if not
+b3a3 b3a3 d c9
+b3a3 b3a3 u 01 01
+b3a3 b3a3 s 	ret
+b3a4 b3a4 s ;
+b3a4 b3a4 s ;
+b3a4 b3a4 s backup:
+b3a4 b3a4 s 	;back-up one screen position
+b3a4 b3a4 d cdacb3
+b3a4 b3a4 u 03 01
+b3a4 b3a4 s 	call pctlh!
+b3a7 b3a7 d 0e20
+b3a7 b3a7 u 02 01
+b3a7 b3a7 s  mvi c,' '!
+b3a9 b3a9 d cd0cc0
+b3a9 b3a9 u 03 01
+b3a9 b3a9 s  call conoutf
+b3ac b3ac s ;	(drop through to pctlh)				;
+b3ac b3ac s pctlh:
+b3ac b3ac s 	;send ctlh to console without affecting column count
+b3ac b3ac d 0e08
+b3ac b3ac u 02 01
+b3ac b3ac s 	mvi c,ctlh!
+b3ae b3ae d c30cc0
+b3ae b3ae u 03 01
+b3ae b3ae s  jmp conoutf
+b3b1 b3b1 s 	;ret
+b3b1 b3b1 s ;
+b3b1 b3b1 s crlfp:
+b3b1 b3b1 s 	;print #, cr, lf for ctlx, ctlu, ctlr functions
+b3b1 b3b1 s 	;then move to strtcol (starting column)
+b3b1 b3b1 d 0e23
+b3b1 b3b1 u 02 01
+b3b1 b3b1 s 	mvi c,'#'!
+b3b3 b3b3 d cd48b3
+b3b3 b3b3 u 03 01
+b3b3 b3b3 s  call conout
+b3b6 b3b6 d cdc9b3
+b3b6 b3b6 u 03 01
+b3b6 b3b6 s 	call crlf
+b3b9 b3b9 s 	;column = 0, move to position strtcol
+b3b9 b3b9 s 	crlfp0:
+b3b9 b3b9 d 3a0cb5
+b3b9 b3b9 u 03 01
+b3b9 b3b9 s 		lda column!
+b3bc b3bc d 210bb5
+b3bc b3bc u 03 01
+b3bc b3bc s  lxi h,strtcol
+b3bf b3bf d be
+b3bf b3bf u 01 01
+b3bf b3bf s 		cmp m!
+b3c0 b3c0 d d0
+b3c0 b3c0 u 01 01
+b3c0 b3c0 s  rnc ;stop when column reaches strtcol
+b3c1 b3c1 d 0e20
+b3c1 b3c1 u 02 01
+b3c1 b3c1 s 		mvi c,' '!
+b3c3 b3c3 d cd48b3
+b3c3 b3c3 u 03 01
+b3c3 b3c3 s  call conout ;print blank
+b3c6 b3c6 d c3b9b3
+b3c6 b3c6 u 03 01
+b3c6 b3c6 s 		jmp crlfp0
+b3c9 b3c9 s ;;
+b3c9 b3c9 s ;
+b3c9 b3c9 s crlf:
+b3c9 b3c9 s 	;carriage return line feed sequence
+b3c9 b3c9 d 0e0d
+b3c9 b3c9 u 02 01
+b3c9 b3c9 s 	mvi c,cr!
+b3cb b3cb d cd48b3
+b3cb b3cb u 03 01
+b3cb b3cb s  call conout!
+b3ce b3ce d 0e0a
+b3ce b3ce u 02 01
+b3ce b3ce s  mvi c,lf!
+b3d0 b3d0 d c348b3
+b3d0 b3d0 u 03 01
+b3d0 b3d0 s  jmp conout
+b3d3 b3d3 s 	;ret
+b3d3 b3d3 s ;
+b3d3 b3d3 s print:
+b3d3 b3d3 s 	;print message until M(BC) = '$'
+b3d3 b3d3 d 0a
+b3d3 b3d3 u 01 01
+b3d3 b3d3 s 	ldax b!
+b3d4 b3d4 d fe24
+b3d4 b3d4 u 02 01
+b3d4 b3d4 s  cpi '$'!
+b3d6 b3d6 d c8
+b3d6 b3d6 u 01 01
+b3d6 b3d6 s  rz ;stop on $
+b3d7 b3d7 s 		;more to print
+b3d7 b3d7 d 03
+b3d7 b3d7 u 01 01
+b3d7 b3d7 s 		inx b!
+b3d8 b3d8 d c5
+b3d8 b3d8 u 01 01
+b3d8 b3d8 s  push b!
+b3d9 b3d9 d 4f
+b3d9 b3d9 u 01 01
+b3d9 b3d9 s  mov c,a ;char to C
+b3da b3da d cd90b3
+b3da b3da u 03 01
+b3da b3da s 		call tabout ;another character printed
+b3dd b3dd d c1
+b3dd b3dd u 01 01
+b3dd b3dd s 		pop b!
+b3de b3de d c3d3b3
+b3de b3de u 03 01
+b3de b3de s  jmp print
+b3e1 b3e1 s ;
+b3e1 b3e1 s read:	;read to info address (max length, current length, buffer)
+b3e1 b3e1 d 3a0cb5
+b3e1 b3e1 u 03 01
+b3e1 b3e1 s 	lda column!
+b3e4 b3e4 d 320bb5
+b3e4 b3e4 u 03 01
+b3e4 b3e4 s  sta strtcol ;save start for ctl-x, ctl-h
+b3e7 b3e7 d 2a43b5
+b3e7 b3e7 u 03 01
+b3e7 b3e7 s 	lhld info
+b3ea b3ea d 4e
+b3ea b3ea u 01 01
+b3ea b3ea s 	mov c,m!
+b3eb b3eb d 23
+b3eb b3eb u 01 01
+b3eb b3eb s  inx h!
+b3ec b3ec d e5
+b3ec b3ec u 01 01
+b3ec b3ec s  push h!
+b3ed b3ed d 0600
+b3ed b3ed u 02 01
+b3ed b3ed s  mvi b,0
+b3ef b3ef s 	;B = current buffer length,
+b3ef b3ef s 	;C = maximum buffer length,
+b3ef b3ef s 	;HL= next to fill - 1
+b3ef b3ef s 	readnx:
+b3ef b3ef s 		;read next character, BC, HL active
+b3ef b3ef d c5
+b3ef b3ef u 01 01
+b3ef b3ef s 		push b!
+b3f0 b3f0 d e5
+b3f0 b3f0 u 01 01
+b3f0 b3f0 s  push h ;blen, cmax, HL saved
+b3f1 b3f1 s 		readn0:
+b3f1 b3f1 d cdfbb2
+b3f1 b3f1 u 03 01
+b3f1 b3f1 s 			call conin ;next char in A
+b3f4 b3f4 d e67f
+b3f4 b3f4 u 02 01
+b3f4 b3f4 s 			ani 7fh ;mask parity bit
+b3f6 b3f6 d e1
+b3f6 b3f6 u 01 01
+b3f6 b3f6 s 			pop h!
+b3f7 b3f7 d c1
+b3f7 b3f7 u 01 01
+b3f7 b3f7 s  pop b ;reactivate counters
+b3f8 b3f8 d fe0d
+b3f8 b3f8 u 02 01
+b3f8 b3f8 s 			cpi cr!
+b3fa b3fa d cac1b4
+b3fa b3fa u 03 01
+b3fa b3fa s  jz readen ;end of line?
+b3fd b3fd d fe0a
+b3fd b3fd u 02 01
+b3fd b3fd s 			cpi lf!
+b3ff b3ff d cac1b4
+b3ff b3ff u 03 01
+b3ff b3ff s  jz readen ;also end of line
+b402 b402 d fe08
+b402 b402 u 02 01
+b402 b402 s 			cpi ctlh!
+b404 b404 d c216b4
+b404 b404 u 03 01
+b404 b404 s  jnz noth ;backspace?
+b407 b407 s 			;do we have any characters to back over?
+b407 b407 d 78
+b407 b407 u 01 01
+b407 b407 s 			mov a,b!
+b408 b408 d b7
+b408 b408 u 01 01
+b408 b408 s  ora a!
+b409 b409 d caefb3
+b409 b409 u 03 01
+b409 b409 s  jz readnx
+b40c b40c s 			;characters remain in buffer, backup one
+b40c b40c d 05
+b40c b40c u 01 01
+b40c b40c s 			dcr b ;remove one character
+b40d b40d d 3a0cb5
+b40d b40d u 03 01
+b40d b40d s 			lda column!
+b410 b410 d 320ab5
+b410 b410 u 03 01
+b410 b410 s  sta compcol ;col > 0
+b413 b413 s 			;compcol > 0 marks repeat as length compute
+b413 b413 d c370b4
+b413 b413 u 03 01
+b413 b413 s 			jmp linelen ;uses same code as repeat
+b416 b416 s 		noth:
+b416 b416 s 			;not a backspace
+b416 b416 d fe7f
+b416 b416 u 02 01
+b416 b416 s 			cpi rubout!
+b418 b418 d c226b4
+b418 b418 u 03 01
+b418 b418 s  jnz notrub ;rubout char?
+b41b b41b s 			;rubout encountered, rubout if possible
+b41b b41b d 78
+b41b b41b u 01 01
+b41b b41b s 			mov a,b!
+b41c b41c d b7
+b41c b41c u 01 01
+b41c b41c s  ora a!
+b41d b41d d caefb3
+b41d b41d u 03 01
+b41d b41d s  jz readnx ;skip if len=0
+b420 b420 s 			;buffer has characters, resend last char
+b420 b420 d 7e
+b420 b420 u 01 01
+b420 b420 s 			mov a,m!
+b421 b421 d 05
+b421 b421 u 01 01
+b421 b421 s  dcr b!
+b422 b422 d 2b
+b422 b422 u 01 01
+b422 b422 s  dcx h ;A = last char
+b423 b423 s 			;blen=blen-1, next to fill - 1 decremented
+b423 b423 d c3a9b4
+b423 b423 u 03 01
+b423 b423 s 			jmp rdech1 ;act like this is an echo
+b426 b426 s ;
+b426 b426 s 		notrub:
+b426 b426 s 			;not a rubout character, check end line
+b426 b426 d fe05
+b426 b426 u 02 01
+b426 b426 s 			cpi ctle!
+b428 b428 d c237b4
+b428 b428 u 03 01
+b428 b428 s  jnz note ;physical end line?
+b42b b42b s 			;yes, save active counters and force eol
+b42b b42b d c5
+b42b b42b u 01 01
+b42b b42b s 			push b!
+b42c b42c d e5
+b42c b42c u 01 01
+b42c b42c s  push h!
+b42d b42d d cdc9b3
+b42d b42d u 03 01
+b42d b42d s  call crlf
+b430 b430 d af
+b430 b430 u 01 01
+b430 b430 s 			xra a!
+b431 b431 d 320bb5
+b431 b431 u 03 01
+b431 b431 s  sta strtcol ;start position = 00
+b434 b434 d c3f1b3
+b434 b434 u 03 01
+b434 b434 s 			jmp readn0 ;for another character
+b437 b437 s 		note:
+b437 b437 s 			;not end of line, list toggle?
+b437 b437 d fe10
+b437 b437 u 02 01
+b437 b437 s 			cpi ctlp!
+b439 b439 d c248b4
+b439 b439 u 03 01
+b439 b439 s  jnz notp ;skip if not ctlp
+b43c b43c s 			;list toggle - change parity
+b43c b43c d e5
+b43c b43c u 01 01
+b43c b43c s 			push h ;save next to fill - 1
+b43d b43d d 210db5
+b43d b43d u 03 01
+b43d b43d s 			lxi h,listcp ;HL=.listcp flag
+b440 b440 d 3e01
+b440 b440 u 02 01
+b440 b440 s 			mvi a,1!
+b442 b442 d 96
+b442 b442 u 01 01
+b442 b442 s  sub m ;True-listcp
+b443 b443 d 77
+b443 b443 u 01 01
+b443 b443 s 			mov m,a ;listcp = not listcp
+b444 b444 d e1
+b444 b444 u 01 01
+b444 b444 s 			pop h!
+b445 b445 d c3efb3
+b445 b445 u 03 01
+b445 b445 s  jmp readnx ;for another char
+b448 b448 s 		notp:
+b448 b448 s 			;not a ctlp, line delete?
+b448 b448 d fe18
+b448 b448 u 02 01
+b448 b448 s 			cpi ctlx!
+b44a b44a d c25fb4
+b44a b44a u 03 01
+b44a b44a s  jnz notx
+b44d b44d d e1
+b44d b44d u 01 01
+b44d b44d s 			pop h ;discard start position
+b44e b44e s 			;loop while column > strtcol
+b44e b44e s 			backx:
+b44e b44e d 3a0bb5
+b44e b44e u 03 01
+b44e b44e s 				lda strtcol!
+b451 b451 d 210cb5
+b451 b451 u 03 01
+b451 b451 s  lxi h,column
+b454 b454 d be
+b454 b454 u 01 01
+b454 b454 s 				cmp m!
+b455 b455 d d2e1b3
+b455 b455 u 03 01
+b455 b455 s  jnc read ;start again
+b458 b458 d 35
+b458 b458 u 01 01
+b458 b458 s 				dcr m ;column = column - 1
+b459 b459 d cda4b3
+b459 b459 u 03 01
+b459 b459 s 				call backup ;one position
+b45c b45c d c34eb4
+b45c b45c u 03 01
+b45c b45c s 				jmp backx
+b45f b45f s 		notx:
+b45f b45f s 			;not a control x, control u?
+b45f b45f s 			;not control-X, control-U?
+b45f b45f d fe15
+b45f b45f u 02 01
+b45f b45f s 			cpi ctlu!
+b461 b461 d c26bb4
+b461 b461 u 03 01
+b461 b461 s  jnz notu ;skip if not
+b464 b464 s 			;delete line (ctlu)
+b464 b464 d cdb1b3
+b464 b464 u 03 01
+b464 b464 s 			call crlfp ;physical eol
+b467 b467 d e1
+b467 b467 u 01 01
+b467 b467 s 			pop h ;discard starting position
+b468 b468 d c3e1b3
+b468 b468 u 03 01
+b468 b468 s 			jmp read ;to start all over
+b46b b46b s 		notu:
+b46b b46b s 			;not line delete, repeat line?
+b46b b46b d fe12
+b46b b46b u 02 01
+b46b b46b s 			cpi ctlr!
+b46d b46d d c2a6b4
+b46d b46d u 03 01
+b46d b46d s  jnz notr
+b470 b470 s 		linelen:
+b470 b470 s 			;repeat line, or compute line len (ctlh)
+b470 b470 s 			;if compcol > 0
+b470 b470 d c5
+b470 b470 u 01 01
+b470 b470 s 			push b!
+b471 b471 d cdb1b3
+b471 b471 u 03 01
+b471 b471 s  call crlfp ;save line length
+b474 b474 d c1
+b474 b474 u 01 01
+b474 b474 s 			pop b!
+b475 b475 d e1
+b475 b475 u 01 01
+b475 b475 s  pop h!
+b476 b476 d e5
+b476 b476 u 01 01
+b476 b476 s  push h!
+b477 b477 d c5
+b477 b477 u 01 01
+b477 b477 s  push b
+b478 b478 s 			;bcur, cmax active, beginning buff at HL
+b478 b478 s 		rep0:
+b478 b478 d 78
+b478 b478 u 01 01
+b478 b478 s 			mov a,b!
+b479 b479 d b7
+b479 b479 u 01 01
+b479 b479 s  ora a!
+b47a b47a d ca8ab4
+b47a b47a u 03 01
+b47a b47a s  jz rep1 ;count len to 00
+b47d b47d d 23
+b47d b47d u 01 01
+b47d b47d s 			inx h!
+b47e b47e d 4e
+b47e b47e u 01 01
+b47e b47e s  mov c,m ;next to print
+b47f b47f d 05
+b47f b47f u 01 01
+b47f b47f s 			dcr b!
+b480 b480 d c5
+b480 b480 u 01 01
+b480 b480 s  push b!
+b481 b481 d e5
+b481 b481 u 01 01
+b481 b481 s  push h ;count length down
+b482 b482 d cd7fb3
+b482 b482 u 03 01
+b482 b482 s 			call ctlout ;character echoed
+b485 b485 d e1
+b485 b485 u 01 01
+b485 b485 s 			pop h!
+b486 b486 d c1
+b486 b486 u 01 01
+b486 b486 s  pop b ;recall remaining count
+b487 b487 d c378b4
+b487 b487 u 03 01
+b487 b487 s 			jmp rep0 ;for the next character
+b48a b48a s 		rep1:
+b48a b48a s 			;end of repeat, recall lengths
+b48a b48a s 			;original BC still remains pushed
+b48a b48a d e5
+b48a b48a u 01 01
+b48a b48a s 			push h ;save next to fill
+b48b b48b d 3a0ab5
+b48b b48b u 03 01
+b48b b48b s 			lda compcol!
+b48e b48e d b7
+b48e b48e u 01 01
+b48e b48e s  ora a ;>0 if computing length
+b48f b48f d caf1b3
+b48f b48f u 03 01
+b48f b48f s 			jz readn0 ;for another char if so
+b492 b492 s 			;column position computed for ctlh
+b492 b492 d 210cb5
+b492 b492 u 03 01
+b492 b492 s 			lxi h,column!
+b495 b495 d 96
+b495 b495 u 01 01
+b495 b495 s  sub m ;diff > 0
+b496 b496 d 320ab5
+b496 b496 u 03 01
+b496 b496 s 			sta compcol ;count down below
+b499 b499 s 			;move back compcol-column spaces
+b499 b499 s 		backsp:
+b499 b499 s 			;move back one more space
+b499 b499 d cda4b3
+b499 b499 u 03 01
+b499 b499 s 			call backup ;one space
+b49c b49c d 210ab5
+b49c b49c u 03 01
+b49c b49c s 			lxi h,compcol!
+b49f b49f d 35
+b49f b49f u 01 01
+b49f b49f s  dcr m
+b4a0 b4a0 d c299b4
+b4a0 b4a0 u 03 01
+b4a0 b4a0 s 			jnz backsp
+b4a3 b4a3 d c3f1b3
+b4a3 b4a3 u 03 01
+b4a3 b4a3 s 			jmp readn0 ;for next character
+b4a6 b4a6 s 		notr:
+b4a6 b4a6 s 			;not a ctlr, place into buffer
+b4a6 b4a6 s 		rdecho:
+b4a6 b4a6 d 23
+b4a6 b4a6 u 01 01
+b4a6 b4a6 s 			inx h!
+b4a7 b4a7 d 77
+b4a7 b4a7 u 01 01
+b4a7 b4a7 s  mov m,a ;character filled to mem
+b4a8 b4a8 d 04
+b4a8 b4a8 u 01 01
+b4a8 b4a8 s 			inr b ;blen = blen + 1
+b4a9 b4a9 s 		rdech1:
+b4a9 b4a9 s 			;look for a random control character
+b4a9 b4a9 d c5
+b4a9 b4a9 u 01 01
+b4a9 b4a9 s 			push b!
+b4aa b4aa d e5
+b4aa b4aa u 01 01
+b4aa b4aa s  push h ;active values saved
+b4ab b4ab d 4f
+b4ab b4ab u 01 01
+b4ab b4ab s 			mov c,a ;ready to print
+b4ac b4ac d cd7fb3
+b4ac b4ac u 03 01
+b4ac b4ac s 			call ctlout ;may be up-arrow C
+b4af b4af d e1
+b4af b4af u 01 01
+b4af b4af s 			pop h!
+b4b0 b4b0 d c1
+b4b0 b4b0 u 01 01
+b4b0 b4b0 s  pop b!
+b4b1 b4b1 d 7e
+b4b1 b4b1 u 01 01
+b4b1 b4b1 s  mov a,m ;recall char
+b4b2 b4b2 d fe03
+b4b2 b4b2 u 02 01
+b4b2 b4b2 s 			cpi ctlc ;set flags for reboot test
+b4b4 b4b4 d 78
+b4b4 b4b4 u 01 01
+b4b4 b4b4 s 			mov a,b ;move length to A
+b4b5 b4b5 d c2bdb4
+b4b5 b4b5 u 03 01
+b4b5 b4b5 s 			jnz notc ;skip if not a control c
+b4b8 b4b8 d fe01
+b4b8 b4b8 u 02 01
+b4b8 b4b8 s 			cpi 1 ;control C, must be length 1
+b4ba b4ba d ca0000
+b4ba b4ba u 03 01
+b4ba b4ba s 			jz reboot ;reboot if blen = 1
+b4bd b4bd s 			;length not one, so skip reboot
+b4bd b4bd s 		notc:
+b4bd b4bd s 			;not reboot, are we at end of buffer?
+b4bd b4bd d b9
+b4bd b4bd u 01 01
+b4bd b4bd s 			cmp c!
+b4be b4be d daefb3
+b4be b4be u 03 01
+b4be b4be s  jc readnx ;go for another if not
+b4c1 b4c1 s 		readen:
+b4c1 b4c1 s 			;end of read operation, store blen
+b4c1 b4c1 d e1
+b4c1 b4c1 u 01 01
+b4c1 b4c1 s 			pop h!
+b4c2 b4c2 d 70
+b4c2 b4c2 u 01 01
+b4c2 b4c2 s  mov m,b ;M(current len) = B
+b4c3 b4c3 d 0e0d
+b4c3 b4c3 u 02 01
+b4c3 b4c3 s 			mvi c,cr!
+b4c5 b4c5 d c348b3
+b4c5 b4c5 u 03 01
+b4c5 b4c5 s  jmp conout ;return carriage
+b4c8 b4c8 s 			;ret
+b4c8 b4c8 s func1:
+b4c8 b4c8 s 	;return console character with echo
+b4c8 b4c8 d cd06b3
+b4c8 b4c8 u 03 01
+b4c8 b4c8 s 	call conech
+b4cb b4cb d c301b5
+b4cb b4cb u 03 01
+b4cb b4cb s 	jmp sta$ret
+b4ce b4ce s ;
+b4ce b4ce s func2:	equ	tabout
+b4ce b4ce s 	;write console character with tab expansion
+b4ce b4ce s ;
+b4ce b4ce s func3:
+b4ce b4ce s 	;return reader character
+b4ce b4ce d cd15c0
+b4ce b4ce u 03 01
+b4ce b4ce s 	call readerf
+b4d1 b4d1 d c301b5
+b4d1 b4d1 u 03 01
+b4d1 b4d1 s 	jmp sta$ret
+b4d4 b4d4 s ;
+b4d4 b4d4 s ;func4:	equated to punchf
+b4d4 b4d4 s 	;write punch character
+b4d4 b4d4 s ;
+b4d4 b4d4 s ;func5:	equated to listf
+b4d4 b4d4 s 	;write list character
+b4d4 b4d4 s 	;write to list device
+b4d4 b4d4 s ;
+b4d4 b4d4 s func6:
+b4d4 b4d4 s 	;direct console i/o - read if 0ffh
+b4d4 b4d4 d 79
+b4d4 b4d4 u 01 01
+b4d4 b4d4 s 	mov a,c!
+b4d5 b4d5 d 3c
+b4d5 b4d5 u 01 01
+b4d5 b4d5 s  inr a!
+b4d6 b4d6 d cae0b4
+b4d6 b4d6 u 03 01
+b4d6 b4d6 s  jz dirinp ;0ffh => 00h, means input mode
+b4d9 b4d9 d 3c
+b4d9 b4d9 u 01 01
+b4d9 b4d9 s 		inr a!
+b4da b4da d ca06c0
+b4da b4da u 03 01
+b4da b4da s  jz constf	;0feH in C for status
+b4dd b4dd s 		;direct output function
+b4dd b4dd d c30cc0
+b4dd b4dd u 03 01
+b4dd b4dd s 		jmp conoutf			;
+b4e0 b4e0 s 	dirinp:
+b4e0 b4e0 d cd06c0
+b4e0 b4e0 u 03 01
+b4e0 b4e0 s 		call constf ;status check
+b4e3 b4e3 d b7
+b4e3 b4e3 u 01 01
+b4e3 b4e3 s 		ora a!
+b4e4 b4e4 d ca91bf
+b4e4 b4e4 u 03 01
+b4e4 b4e4 s  jz retmon ;skip, return 00 if not ready
+b4e7 b4e7 s 		;character is ready, get it
+b4e7 b4e7 d cd09c0
+b4e7 b4e7 u 03 01
+b4e7 b4e7 s 		call coninf ;to A
+b4ea b4ea d c301b5
+b4ea b4ea u 03 01
+b4ea b4ea s 		jmp sta$ret
+b4ed b4ed s ;
+b4ed b4ed s func7:
+b4ed b4ed s 	;return io byte
+b4ed b4ed d 3a0300
+b4ed b4ed u 03 01
+b4ed b4ed s 	lda ioloc
+b4f0 b4f0 d c301b5
+b4f0 b4f0 u 03 01
+b4f0 b4f0 s 	jmp sta$ret
+b4f3 b4f3 s ;
+b4f3 b4f3 s func8:
+b4f3 b4f3 s 	;set i/o byte
+b4f3 b4f3 d 210300
+b4f3 b4f3 u 03 01
+b4f3 b4f3 s 	lxi h,ioloc
+b4f6 b4f6 d 71
+b4f6 b4f6 u 01 01
+b4f6 b4f6 s 	mov m,c
+b4f7 b4f7 d c9
+b4f7 b4f7 u 01 01
+b4f7 b4f7 s 	ret ;jmp goback
+b4f8 b4f8 s ;
+b4f8 b4f8 s func9:
+b4f8 b4f8 s 	;write line until $ encountered
+b4f8 b4f8 d eb
+b4f8 b4f8 u 01 01
+b4f8 b4f8 s 	xchg	;was lhld info	
+b4f9 b4f9 d 4d
+b4f9 b4f9 u 01 01
+b4f9 b4f9 s 	mov c,l!
+b4fa b4fa d 44
+b4fa b4fa u 01 01
+b4fa b4fa s  mov b,h ;BC=string address
+b4fb b4fb d c3d3b3
+b4fb b4fb u 03 01
+b4fb b4fb s 	jmp print ;out to console	
+b4fe b4fe s ;
+b4fe b4fe s func10:	equ	read
+b4fe b4fe s 	;read a buffered console line
+b4fe b4fe s ;
+b4fe b4fe s func11:
+b4fe b4fe s 	;check console status
+b4fe b4fe d cd23b3
+b4fe b4fe u 03 01
+b4fe b4fe s 	call conbrk
+b501 b501 s 	;(drop through to sta$ret)
+b501 b501 s sta$ret:
+b501 b501 s 	;store the A register to aret
+b501 b501 d 3245b5
+b501 b501 u 03 01
+b501 b501 s 	sta aret
+b504 b504 s func$ret:						;
+b504 b504 d c9
+b504 b504 u 01 01
+b504 b504 s 	ret ;jmp goback (pop stack for non cp/m functions)
+b505 b505 s ;
+b505 b505 s setlret1:
+b505 b505 s 	;set lret = 1
+b505 b505 d 3e01
+b505 b505 u 02 01
+b505 b505 s 	mvi a,1!
+b507 b507 d c301b5
+b507 b507 u 03 01
+b507 b507 s  jmp sta$ret				;
+b50a b50a s ;
+b50a b50a s ;
+b50a b50a s ;
+b50a b50a s ;	data areas
+b50a b50a s ;
+b50a b50a d 00
+b50a b50a u 01 02
+b50a b50a s compcol:db	0	;true if computing column position
+b50b b50b d 00
+b50b b50b u 01 02
+b50b b50b s strtcol:db	0	;starting column position after read
+b50c b50c d 00
+b50c b50c u 01 02
+b50c b50c s column:	db	0	;column position
+b50d b50d d 00
+b50d b50d u 01 02
+b50d b50d s listcp:	db	0	;listing toggle
+b50e b50e d 00
+b50e b50e u 01 02
+b50e b50e s kbchar:	db	0	;initial key char = 00
+b50f b50f s entsp:	ds	2	;entry stack pointer
+b511 b511 s 	ds	ssize*2	;stack size
+b541 b541 s lstack:
+b541 b541 s ;	end of Basic I/O System
+b541 b541 s ;
+b541 b541 s ;*****************************************************************
+b541 b541 s ;*****************************************************************
+b541 b541 s ;
+b541 b541 s ;	common values shared between bdosi and bdos
+b541 b541 d 00
+b541 b541 u 01 02
+b541 b541 s usrcode:db	0	;current user number
+b542 b542 d 00
+b542 b542 u 01 02
+b542 b542 s curdsk:	db	0	;current disk number
+b543 b543 s info:	ds	2	;information address
+b545 b545 s aret:	ds	2	;address value to return
+b547 b547 s lret	equ	aret	;low(aret)
+b547 b547 s ;
+b547 b547 s ;*****************************************************************
+b547 b547 s ;*****************************************************************
+b547 b547 s ;**                                                             **
+b547 b547 s ;**   B a s i c    D i s k   O p e r a t i n g   S y s t e m    **
+b547 b547 s ;**                                                             **
+b547 b547 s ;*****************************************************************
+b547 b547 s ;*****************************************************************
+b547 b547 s ;
+b547 b547 s dvers	equ	22h	;version 2.2
+b547 b547 s ;	module addresses
+b547 b547 s ;
+b547 b547 s ;	literal constants
+b547 b547 s true	equ	0ffh	;constant true
+b547 b547 s false	equ	000h	;constant false
+b547 b547 s enddir	equ	0ffffh	;end of directory
+b547 b547 s byte	equ	1	;number of bytes for "byte" type
+b547 b547 s word	equ	2	;number of bytes for "word" type
+b547 b547 s ;
+b547 b547 s ;	fixed addresses in low memory
+b547 b547 s tfcb	equ	005ch	;default fcb location
+b547 b547 s tbuff	equ	0080h	;default buffer location
+b547 b547 s ;
+b547 b547 s ;	fixed addresses referenced in bios module are
+b547 b547 s ;	pererr (0009), selerr (000c), roderr (000f)
+b547 b547 s ;
+b547 b547 s ;	error message handlers
+b547 b547 s ;
+b547 b547 s ;per$error:	 
+b547 b547 s 	;report permanent error to user	
+b547 b547 s ;	lxi h,pererr  jmp goerr		
+b547 b547 s ;
+b547 b547 s ;rod$error:						;
+b547 b547 s 	;report read/only disk error
+b547 b547 s ;	lxi h,roderr  jmp goerr				;
+b547 b547 s ;
+b547 b547 s ;rof$error:						;
+b547 b547 s 	;report read/only file error			;
+b547 b547 s ;	lxi h,roferr	;jmp goerr	
+b547 b547 s ;
+b547 b547 s sel$error:
+b547 b547 s 	;report select error
+b547 b547 d 210bb2
+b547 b547 u 03 01
+b547 b547 s 	lxi h,selerr					;
+b54a b54a s ;
+b54a b54a s ;
+b54a b54a s goerr:
+b54a b54a s 	;HL = .errorhandler, call subroutine
+b54a b54a d 5e
+b54a b54a u 01 01
+b54a b54a s 	mov e,m!
+b54b b54b d 23
+b54b b54b u 01 01
+b54b b54b s  inx h!
+b54c b54c d 56
+b54c b54c u 01 01
+b54c b54c s  mov d,m ;address of routine in DE
+b54d b54d d eb
+b54d b54d u 01 01
+b54d b54d s 	xchg!
+b54e b54e d e9
+b54e b54e u 01 01
+b54e b54e s  pchl ;to subroutine
+b54f b54f s ;
+b54f b54f s ;
+b54f b54f s ;
+b54f b54f s ;	local subroutines for bios interface
+b54f b54f s ;
+b54f b54f s move:
+b54f b54f s 	;move data length of length C from source DE to
+b54f b54f s 	;destination given by HL
+b54f b54f d 0c
+b54f b54f u 01 01
+b54f b54f s 	inr c ;in case it is zero
+b550 b550 s 	move0:
+b550 b550 d 0d
+b550 b550 u 01 01
+b550 b550 s 		dcr c!
+b551 b551 d c8
+b551 b551 u 01 01
+b551 b551 s  rz ;more to move
+b552 b552 d 1a
+b552 b552 u 01 01
+b552 b552 s 		ldax d!
+b553 b553 d 77
+b553 b553 u 01 01
+b553 b553 s  mov m,a ;one byte moved
+b554 b554 d 13
+b554 b554 u 01 01
+b554 b554 s 		inx d!
+b555 b555 d 23
+b555 b555 u 01 01
+b555 b555 s  inx h ;to next byte
+b556 b556 d c350b5
+b556 b556 u 03 01
+b556 b556 s 		jmp move0
+b559 b559 s ;
+b559 b559 s selectdisk:
+b559 b559 s 	;select the disk drive given by curdsk, and fill
+b559 b559 s 	;the base addresses curtrka - alloca, then fill
+b559 b559 s 	;the values of the disk parameter block
+b559 b559 d 3a42b5
+b559 b559 u 03 01
+b559 b559 s 	lda curdsk!
+b55c b55c d 4f
+b55c b55c u 01 01
+b55c b55c s  mov c,a ;current disk# to c
+b55d b55d s 	;lsb of e = 0 if not yet logged - in
+b55d b55d d cd1bc0
+b55d b55d u 03 01
+b55d b55d s 	call seldskf ;HL filled by call
+b560 b560 s 	;HL = 0000 if error, otherwise disk headers
+b560 b560 d 7c
+b560 b560 u 01 01
+b560 b560 s 	mov a,h!
+b561 b561 d b5
+b561 b561 u 01 01
+b561 b561 s  ora l!
+b562 b562 d c8
+b562 b562 u 01 01
+b562 b562 s  rz ;return with 0000 in HL and z flag
+b563 b563 s 		;disk header block address in hl
+b563 b563 d 5e
+b563 b563 u 01 01
+b563 b563 s 		mov e,m!
+b564 b564 d 23
+b564 b564 u 01 01
+b564 b564 s  inx h!
+b565 b565 d 56
+b565 b565 u 01 01
+b565 b565 s  mov d,m!
+b566 b566 d 23
+b566 b566 u 01 01
+b566 b566 s  inx h ;DE=.tran
+b567 b567 d 22b3bf
+b567 b567 u 03 01
+b567 b567 s 		shld cdrmaxa!
+b56a b56a d 23
+b56a b56a u 01 01
+b56a b56a s  inx h!
+b56b b56b d 23
+b56b b56b u 01 01
+b56b b56b s  inx h ;.cdrmax
+b56c b56c d 22b5bf
+b56c b56c u 03 01
+b56c b56c s 		shld curtrka!
+b56f b56f d 23
+b56f b56f u 01 01
+b56f b56f s  inx h!
+b570 b570 d 23
+b570 b570 u 01 01
+b570 b570 s  inx h ;HL=.currec
+b571 b571 d 22b7bf
+b571 b571 u 03 01
+b571 b571 s 		shld curreca!
+b574 b574 d 23
+b574 b574 u 01 01
+b574 b574 s  inx h!
+b575 b575 d 23
+b575 b575 u 01 01
+b575 b575 s  inx h ;HL=.buffa
+b576 b576 s 		;DE still contains .tran
+b576 b576 d eb
+b576 b576 u 01 01
+b576 b576 s 		xchg!
+b577 b577 d 22d0bf
+b577 b577 u 03 01
+b577 b577 s  shld tranv ;.tran vector
+b57a b57a d 21b9bf
+b57a b57a u 03 01
+b57a b57a s 		lxi h,buffa ;DE= source for move, HL=dest
+b57d b57d d 0e08
+b57d b57d u 02 01
+b57d b57d s 		mvi c,addlist!
+b57f b57f d cd4fb5
+b57f b57f u 03 01
+b57f b57f s  call move ;addlist filled
+b582 b582 s 		;now fill the disk parameter block
+b582 b582 d 2abbbf
+b582 b582 u 03 01
+b582 b582 s 		lhld dpbaddr!
+b585 b585 d eb
+b585 b585 u 01 01
+b585 b585 s  xchg ;DE is source
+b586 b586 d 21c1bf
+b586 b586 u 03 01
+b586 b586 s 		lxi h,sectpt ;HL is destination
+b589 b589 d 0e0f
+b589 b589 u 02 01
+b589 b589 s 		mvi c,dpblist!
+b58b b58b d cd4fb5
+b58b b58b u 03 01
+b58b b58b s  call move ;data filled
+b58e b58e s 		;now set single/double map mode
+b58e b58e d 2ac6bf
+b58e b58e u 03 01
+b58e b58e s 		lhld maxall ;largest allocation number
+b591 b591 d 7c
+b591 b591 u 01 01
+b591 b591 s 		mov a,h ;00 indicates < 255
+b592 b592 d 21ddbf
+b592 b592 u 03 01
+b592 b592 s 		lxi h,single!
+b595 b595 d 36ff
+b595 b595 u 02 01
+b595 b595 s  mvi m,true ;assume a=00
+b597 b597 d b7
+b597 b597 u 01 01
+b597 b597 s 		ora a!
+b598 b598 d ca9db5
+b598 b598 u 03 01
+b598 b598 s  jz retselect
+b59b b59b s 		;high order of maxall not zero, use double dm
+b59b b59b d 3600
+b59b b59b u 02 01
+b59b b59b s 		mvi m,false
+b59d b59d s 	retselect:
+b59d b59d d 3eff
+b59d b59d u 02 01
+b59d b59d s 	mvi a,true!
+b59f b59f d b7
+b59f b59f u 01 01
+b59f b59f s  ora a!
+b5a0 b5a0 d c9
+b5a0 b5a0 u 01 01
+b5a0 b5a0 s  ret ;select disk function ok
+b5a1 b5a1 s ;
+b5a1 b5a1 s home:
+b5a1 b5a1 s 	;move to home position, then offset to start of dir
+b5a1 b5a1 d cd18c0
+b5a1 b5a1 u 03 01
+b5a1 b5a1 s 	call homef ;move to track 00, sector 00 reference
+b5a4 b5a4 s 	;lxi h,offset ;mov c,m ;inx h ;mov b,m ;call settrkf	;
+b5a4 b5a4 s 	;first directory position selected
+b5a4 b5a4 d af
+b5a4 b5a4 u 01 01
+b5a4 b5a4 s 	xra a ;constant zero to accumulator
+b5a5 b5a5 d 2ab5bf
+b5a5 b5a5 u 03 01
+b5a5 b5a5 s 	lhld curtrka!
+b5a8 b5a8 d 77
+b5a8 b5a8 u 01 01
+b5a8 b5a8 s  mov m,a!
+b5a9 b5a9 d 23
+b5a9 b5a9 u 01 01
+b5a9 b5a9 s  inx h!
+b5aa b5aa d 77
+b5aa b5aa u 01 01
+b5aa b5aa s  mov m,a ;curtrk=0000
+b5ab b5ab d 2ab7bf
+b5ab b5ab u 03 01
+b5ab b5ab s 	lhld curreca!
+b5ae b5ae d 77
+b5ae b5ae u 01 01
+b5ae b5ae s  mov m,a!
+b5af b5af d 23
+b5af b5af u 01 01
+b5af b5af s  inx h!
+b5b0 b5b0 d 77
+b5b0 b5b0 u 01 01
+b5b0 b5b0 s  mov m,a ;currec=0000
+b5b1 b5b1 s 	;curtrk, currec both set to 0000
+b5b1 b5b1 d c9
+b5b1 b5b1 u 01 01
+b5b1 b5b1 s 	ret
+b5b2 b5b2 s ;
+b5b2 b5b2 s rdbuff:
+b5b2 b5b2 s 	;read buffer and check condition
+b5b2 b5b2 d cd27c0
+b5b2 b5b2 u 03 01
+b5b2 b5b2 s 	call readf ;current drive, track, sector, dma
+b5b5 b5b5 d c3bbb5
+b5b5 b5b5 u 03 01
+b5b5 b5b5 s 	jmp diocomp	;check for i/o errors
+b5b8 b5b8 s ;
+b5b8 b5b8 s wrbuff:
+b5b8 b5b8 s 	;write buffer and check condition
+b5b8 b5b8 s 	;write type (wrtype) is in register C
+b5b8 b5b8 s 	;wrtype = 0 => normal write operation
+b5b8 b5b8 s 	;wrtype = 1 => directory write operation
+b5b8 b5b8 s 	;wrtype = 2 => start of new block
+b5b8 b5b8 d cd2ac0
+b5b8 b5b8 u 03 01
+b5b8 b5b8 s 	call writef ;current drive, track, sector, dma
+b5bb b5bb s diocomp:	;check for disk errors
+b5bb b5bb d b7
+b5bb b5bb u 01 01
+b5bb b5bb s 	ora a!
+b5bc b5bc d c8
+b5bc b5bc u 01 01
+b5bc b5bc s  rz			;
+b5bd b5bd d 2109b2
+b5bd b5bd u 03 01
+b5bd b5bd s 	lxi	h,pererr			;
+b5c0 b5c0 d c34ab5
+b5c0 b5c0 u 03 01
+b5c0 b5c0 s 	jmp goerr
+b5c3 b5c3 s ;
+b5c3 b5c3 s seekdir:
+b5c3 b5c3 s 	;seek the record containing the current dir entry
+b5c3 b5c3 d 2aeabf
+b5c3 b5c3 u 03 01
+b5c3 b5c3 s 	lhld dcnt ;directory counter to HL
+b5c6 b5c6 d 0e02
+b5c6 b5c6 u 02 01
+b5c6 b5c6 s 	mvi c,dskshf!
+b5c8 b5c8 d cdeab6
+b5c8 b5c8 u 03 01
+b5c8 b5c8 s  call hlrotr ;value to HL
+b5cb b5cb d 22e5bf
+b5cb b5cb u 03 01
+b5cb b5cb s 	shld arecord!
+b5ce b5ce d 22ecbf
+b5ce b5ce u 03 01
+b5ce b5ce s  shld drec ;ready for seek
+b5d1 b5d1 s 	;  jmp seek				;
+b5d1 b5d1 s 	;ret
+b5d1 b5d1 s ;
+b5d1 b5d1 s ;
+b5d1 b5d1 s seek:
+b5d1 b5d1 s 	;seek the track given by arecord (actual record)
+b5d1 b5d1 s 	;local equates for registers
+b5d1 b5d1 s 	arech  equ b!
+b5d1 b5d1 s  arecl  equ c ;arecord = BC
+b5d1 b5d1 s 	crech  equ d!
+b5d1 b5d1 s  crecl  equ e ;currec  = DE
+b5d1 b5d1 s 	ctrkh  equ h!
+b5d1 b5d1 s  ctrkl  equ l ;curtrk  = HL
+b5d1 b5d1 s 	tcrech equ h!
+b5d1 b5d1 s  tcrecl equ l ;tcurrec = HL
+b5d1 b5d1 s 	;load the registers from memory
+b5d1 b5d1 d 21e5bf
+b5d1 b5d1 u 03 01
+b5d1 b5d1 s 	lxi h,arecord!
+b5d4 b5d4 d 4e
+b5d4 b5d4 u 01 01
+b5d4 b5d4 s  mov arecl,m!
+b5d5 b5d5 d 23
+b5d5 b5d5 u 01 01
+b5d5 b5d5 s  inx h!
+b5d6 b5d6 d 46
+b5d6 b5d6 u 01 01
+b5d6 b5d6 s  mov arech,m
+b5d7 b5d7 d 2ab7bf
+b5d7 b5d7 u 03 01
+b5d7 b5d7 s 	lhld curreca !
+b5da b5da d 5e
+b5da b5da u 01 01
+b5da b5da s  mov crecl,m!
+b5db b5db d 23
+b5db b5db u 01 01
+b5db b5db s  inx h!
+b5dc b5dc d 56
+b5dc b5dc u 01 01
+b5dc b5dc s  mov crech,m
+b5dd b5dd d 2ab5bf
+b5dd b5dd u 03 01
+b5dd b5dd s 	lhld curtrka !
+b5e0 b5e0 d 7e
+b5e0 b5e0 u 01 01
+b5e0 b5e0 s  mov a,m!
+b5e1 b5e1 d 23
+b5e1 b5e1 u 01 01
+b5e1 b5e1 s  inx h!
+b5e2 b5e2 d 66
+b5e2 b5e2 u 01 01
+b5e2 b5e2 s  mov ctrkh,m!
+b5e3 b5e3 d 6f
+b5e3 b5e3 u 01 01
+b5e3 b5e3 s  mov ctrkl,a
+b5e4 b5e4 s 	;loop while arecord < currec
+b5e4 b5e4 s 	seek0:
+b5e4 b5e4 d 79
+b5e4 b5e4 u 01 01
+b5e4 b5e4 s 		mov a,arecl!
+b5e5 b5e5 d 93
+b5e5 b5e5 u 01 01
+b5e5 b5e5 s  sub crecl!
+b5e6 b5e6 d 78
+b5e6 b5e6 u 01 01
+b5e6 b5e6 s  mov a,arech!
+b5e7 b5e7 d 9a
+b5e7 b5e7 u 01 01
+b5e7 b5e7 s  sbb crech
+b5e8 b5e8 d d2fab5
+b5e8 b5e8 u 03 01
+b5e8 b5e8 s 		jnc seek1 ;skip if arecord >= currec
+b5eb b5eb s 			;currec = currec - sectpt
+b5eb b5eb d e5
+b5eb b5eb u 01 01
+b5eb b5eb s 			push ctrkh!
+b5ec b5ec d 2ac1bf
+b5ec b5ec u 03 01
+b5ec b5ec s  lhld sectpt
+b5ef b5ef d 7b
+b5ef b5ef u 01 01
+b5ef b5ef s 			mov a,crecl!
+b5f0 b5f0 d 95
+b5f0 b5f0 u 01 01
+b5f0 b5f0 s  sub l!
+b5f1 b5f1 d 5f
+b5f1 b5f1 u 01 01
+b5f1 b5f1 s  mov crecl,a
+b5f2 b5f2 d 7a
+b5f2 b5f2 u 01 01
+b5f2 b5f2 s 			mov a,crech!
+b5f3 b5f3 d 9c
+b5f3 b5f3 u 01 01
+b5f3 b5f3 s  sbb h!
+b5f4 b5f4 d 57
+b5f4 b5f4 u 01 01
+b5f4 b5f4 s  mov crech,a
+b5f5 b5f5 d e1
+b5f5 b5f5 u 01 01
+b5f5 b5f5 s 			pop ctrkh
+b5f6 b5f6 s 			;curtrk = curtrk - 1
+b5f6 b5f6 d 2b
+b5f6 b5f6 u 01 01
+b5f6 b5f6 s 			dcx ctrkh
+b5f7 b5f7 d c3e4b5
+b5f7 b5f7 u 03 01
+b5f7 b5f7 s 		jmp seek0 ;for another try
+b5fa b5fa s 	seek1:
+b5fa b5fa s 	;look while arecord >= (t:=currec + sectpt)
+b5fa b5fa d e5
+b5fa b5fa u 01 01
+b5fa b5fa s 		push ctrkh
+b5fb b5fb d 2ac1bf
+b5fb b5fb u 03 01
+b5fb b5fb s 		lhld sectpt!
+b5fe b5fe d 19
+b5fe b5fe u 01 01
+b5fe b5fe s  dad crech ;HL = currec+sectpt
+b5ff b5ff d da0fb6
+b5ff b5ff u 03 01
+b5ff b5ff s 		  jc seek2		;can be > FFFFH	
+b602 b602 d 79
+b602 b602 u 01 01
+b602 b602 s 		mov a,arecl!
+b603 b603 d 95
+b603 b603 u 01 01
+b603 b603 s  sub tcrecl!
+b604 b604 d 78
+b604 b604 u 01 01
+b604 b604 s  mov a,arech!
+b605 b605 d 9c
+b605 b605 u 01 01
+b605 b605 s  sbb tcrech
+b606 b606 d da0fb6
+b606 b606 u 03 01
+b606 b606 s 		jc seek2 ;skip if t > arecord
+b609 b609 s 			;currec = t
+b609 b609 d eb
+b609 b609 u 01 01
+b609 b609 s 			xchg
+b60a b60a s 			;curtrk = curtrk + 1
+b60a b60a d e1
+b60a b60a u 01 01
+b60a b60a s 			pop ctrkh!
+b60b b60b d 23
+b60b b60b u 01 01
+b60b b60b s  inx ctrkh
+b60c b60c d c3fab5
+b60c b60c u 03 01
+b60c b60c s 		jmp seek1 ;for another try
+b60f b60f d e1
+b60f b60f u 01 01
+b60f b60f s 	seek2:	pop ctrkh
+b610 b610 s 	;arrive here with updated values in each register
+b610 b610 d c5
+b610 b610 u 01 01
+b610 b610 s 	push arech!
+b611 b611 d d5
+b611 b611 u 01 01
+b611 b611 s  push crech!
+b612 b612 d e5
+b612 b612 u 01 01
+b612 b612 s  push ctrkh ;to stack for later
+b613 b613 s 	;stack contains (lowest) BC=arecord, DE=currec, HL=curtrk
+b613 b613 d eb
+b613 b613 u 01 01
+b613 b613 s 	xchg!
+b614 b614 d 2acebf
+b614 b614 u 03 01
+b614 b614 s  lhld offset!
+b617 b617 d 19
+b617 b617 u 01 01
+b617 b617 s  dad d ;HL = curtrk+offset
+b618 b618 d 44
+b618 b618 u 01 01
+b618 b618 s 	mov b,h!
+b619 b619 d 4d
+b619 b619 u 01 01
+b619 b619 s  mov c,l!
+b61a b61a d cd1ec0
+b61a b61a u 03 01
+b61a b61a s  call settrkf ;track set up
+b61d b61d s 	;note that BC - curtrk is difference to move in bios
+b61d b61d d d1
+b61d b61d u 01 01
+b61d b61d s 	pop d ;recall curtrk
+b61e b61e d 2ab5bf
+b61e b61e u 03 01
+b61e b61e s 	lhld curtrka!
+b621 b621 d 73
+b621 b621 u 01 01
+b621 b621 s  mov m,e!
+b622 b622 d 23
+b622 b622 u 01 01
+b622 b622 s  inx h!
+b623 b623 d 72
+b623 b623 u 01 01
+b623 b623 s  mov m,d ;curtrk updated
+b624 b624 s 	;now compute sector as arecord-currec
+b624 b624 d d1
+b624 b624 u 01 01
+b624 b624 s 	pop crech ;recall currec
+b625 b625 d 2ab7bf
+b625 b625 u 03 01
+b625 b625 s 	lhld curreca!
+b628 b628 d 73
+b628 b628 u 01 01
+b628 b628 s  mov m,crecl!
+b629 b629 d 23
+b629 b629 u 01 01
+b629 b629 s  inx h!
+b62a b62a d 72
+b62a b62a u 01 01
+b62a b62a s  mov m,crech
+b62b b62b d c1
+b62b b62b u 01 01
+b62b b62b s 	pop arech ;BC=arecord, DE=currec
+b62c b62c d 79
+b62c b62c u 01 01
+b62c b62c s 	mov a,arecl!
+b62d b62d d 93
+b62d b62d u 01 01
+b62d b62d s  sub crecl!
+b62e b62e d 4f
+b62e b62e u 01 01
+b62e b62e s  mov arecl,a
+b62f b62f d 78
+b62f b62f u 01 01
+b62f b62f s 	mov a,arech!
+b630 b630 d 9a
+b630 b630 u 01 01
+b630 b630 s  sbb crech!
+b631 b631 d 47
+b631 b631 u 01 01
+b631 b631 s  mov arech,a
+b632 b632 d 2ad0bf
+b632 b632 u 03 01
+b632 b632 s 	lhld tranv!
+b635 b635 d eb
+b635 b635 u 01 01
+b635 b635 s  xchg ;BC=sector#, DE=.tran
+b636 b636 d cd30c0
+b636 b636 u 03 01
+b636 b636 s 	call sectran ;HL = tran(sector)
+b639 b639 d 4d
+b639 b639 u 01 01
+b639 b639 s 	mov c,l!
+b63a b63a d 44
+b63a b63a u 01 01
+b63a b63a s  mov b,h ;BC = tran(sector)
+b63b b63b d c321c0
+b63b b63b u 03 01
+b63b b63b s 	jmp setsecf ;sector selected
+b63e b63e s 	;ret
+b63e b63e s ;
+b63e b63e s ;	file control block (fcb) constants
+b63e b63e s empty	equ	0e5h	;empty directory entry
+b63e b63e s lstrec	equ	127	;last record# in extent
+b63e b63e s recsiz	equ	128	;record size
+b63e b63e s fcblen	equ	32	;file control block size
+b63e b63e s dirrec	equ	recsiz/fcblen	;directory elts / record
+b63e b63e s dskshf	equ	2	;log2(dirrec)
+b63e b63e s dskmsk	equ	dirrec-1
+b63e b63e s fcbshf	equ	5	;log2(fcblen)
+b63e b63e s ;
+b63e b63e s extnum	equ	12	;extent number field
+b63e b63e s maxext	equ	31	;largest extent number
+b63e b63e s ubytes	equ	13	;unfilled bytes field
+b63e b63e s modnum	equ	14	;data module number
+b63e b63e s maxmod	equ	15	;largest module number
+b63e b63e s fwfmsk	equ	80h	;file write flag is high order modnum
+b63e b63e s namlen	equ	15	;name length
+b63e b63e s reccnt	equ	15	;record count field
+b63e b63e s dskmap	equ	16	;disk map field
+b63e b63e s lstfcb	equ	fcblen-1
+b63e b63e s nxtrec	equ	fcblen
+b63e b63e s ranrec	equ	nxtrec+1;random record field (2 bytes)
+b63e b63e s ;
+b63e b63e s ;	reserved file indicators
+b63e b63e s rofile	equ	9	;high order of first type char
+b63e b63e s invis	equ	10	;invisible file in dir command
+b63e b63e s ;	equ	11	;reserved
+b63e b63e s ;
+b63e b63e s ;	utility functions for file access
+b63e b63e s ;
+b63e b63e s dm$position:
+b63e b63e s 	;compute disk map position for vrecord to HL
+b63e b63e d 21c3bf
+b63e b63e u 03 01
+b63e b63e s 	lxi h,blkshf!
+b641 b641 d 4e
+b641 b641 u 01 01
+b641 b641 s  mov c,m ;shift count to C
+b642 b642 d 3ae3bf
+b642 b642 u 03 01
+b642 b642 s 	lda vrecord ;current virtual record to A
+b645 b645 s 	dmpos0:
+b645 b645 d b7
+b645 b645 u 01 01
+b645 b645 s 		ora a!
+b646 b646 d 1f
+b646 b646 u 01 01
+b646 b646 s  rar!
+b647 b647 d 0d
+b647 b647 u 01 01
+b647 b647 s  dcr c!
+b648 b648 d c245b6
+b648 b648 u 03 01
+b648 b648 s  jnz dmpos0
+b64b b64b s 	;A = shr(vrecord,blkshf) = vrecord/2**(sect/block)
+b64b b64b d 47
+b64b b64b u 01 01
+b64b b64b s 	mov b,a ;save it for later addition
+b64c b64c d 3e08
+b64c b64c u 02 01
+b64c b64c s 	mvi a,8!
+b64e b64e d 96
+b64e b64e u 01 01
+b64e b64e s  sub m ;8-blkshf to accumulator
+b64f b64f d 4f
+b64f b64f u 01 01
+b64f b64f s 	mov c,a ;extent shift count in register c
+b650 b650 d 3ae2bf
+b650 b650 u 03 01
+b650 b650 s 	lda extval ;extent value ani extmsk
+b653 b653 s 	dmpos1:
+b653 b653 s 		;blkshf = 3,4,5,6,7, C=5,4,3,2,1
+b653 b653 s 		;shift is 4,3,2,1,0
+b653 b653 d 0d
+b653 b653 u 01 01
+b653 b653 s 		dcr c!
+b654 b654 d ca5cb6
+b654 b654 u 03 01
+b654 b654 s  jz dmpos2
+b657 b657 d b7
+b657 b657 u 01 01
+b657 b657 s 		ora a!
+b658 b658 d 17
+b658 b658 u 01 01
+b658 b658 s  ral!
+b659 b659 d c353b6
+b659 b659 u 03 01
+b659 b659 s  jmp dmpos1
+b65c b65c s 	dmpos2:
+b65c b65c s 	;arrive here with A = shl(ext and extmsk,7-blkshf)
+b65c b65c d 80
+b65c b65c u 01 01
+b65c b65c s 	add b ;add the previous shr(vrecord,blkshf) value
+b65d b65d s 	;A is one of the following values, depending upon alloc
+b65d b65d s 	;bks blkshf
+b65d b65d s 	;1k   3     v/8 + extval * 16
+b65d b65d s 	;2k   4     v/16+ extval * 8
+b65d b65d s 	;4k   5     v/32+ extval * 4
+b65d b65d s 	;8k   6     v/64+ extval * 2
+b65d b65d s 	;16k  7     v/128+extval * 1
+b65d b65d d c9
+b65d b65d u 01 01
+b65d b65d s 	ret ;with dm$position in A
+b65e b65e s ;
+b65e b65e s getdm:
+b65e b65e s 	;return disk map value from position given by BC
+b65e b65e d 2a43b5
+b65e b65e u 03 01
+b65e b65e s 	lhld info ;base address of file control block
+b661 b661 d 111000
+b661 b661 u 03 01
+b661 b661 s 	lxi d,dskmap!
+b664 b664 d 19
+b664 b664 u 01 01
+b664 b664 s  dad d ;HL =.diskmap
+b665 b665 d 09
+b665 b665 u 01 01
+b665 b665 s 	dad b ;index by a single byte value
+b666 b666 d 3addbf
+b666 b666 u 03 01
+b666 b666 s 	lda single ;single byte/map entry?
+b669 b669 d b7
+b669 b669 u 01 01
+b669 b669 s 	ora a!
+b66a b66a d ca71b6
+b66a b66a u 03 01
+b66a b66a s  jz getdmd ;get disk map single byte
+b66d b66d d 6e
+b66d b66d u 01 01
+b66d b66d s 		mov l,m!
+b66e b66e d 2600
+b66e b66e u 02 01
+b66e b66e s  mvi h,0!
+b670 b670 d c9
+b670 b670 u 01 01
+b670 b670 s  ret ;with HL=00bb
+b671 b671 s 	getdmd:
+b671 b671 d 09
+b671 b671 u 01 01
+b671 b671 s 		dad b ;HL=.fcb(dm+i*2)
+b672 b672 s 		;double precision value returned
+b672 b672 d 5e
+b672 b672 u 01 01
+b672 b672 s 		mov e,m!
+b673 b673 d 23
+b673 b673 u 01 01
+b673 b673 s  inx h!
+b674 b674 d 56
+b674 b674 u 01 01
+b674 b674 s  mov d,m!
+b675 b675 d eb
+b675 b675 u 01 01
+b675 b675 s  xchg!
+b676 b676 d c9
+b676 b676 u 01 01
+b676 b676 s  ret
+b677 b677 s ;
+b677 b677 s index:
+b677 b677 s 	;compute disk block number from current fcb
+b677 b677 d cd3eb6
+b677 b677 u 03 01
+b677 b677 s 	call dm$position ;0...15 in register A
+b67a b67a d 4f
+b67a b67a u 01 01
+b67a b67a s 	mov c,a!
+b67b b67b d 0600
+b67b b67b u 02 01
+b67b b67b s  mvi b,0!
+b67d b67d d cd5eb6
+b67d b67d u 03 01
+b67d b67d s  call getdm ;value to HL
+b680 b680 d 22e5bf
+b680 b680 u 03 01
+b680 b680 s 	shld arecord!
+b683 b683 d c9
+b683 b683 u 01 01
+b683 b683 s  ret
+b684 b684 s ;
+b684 b684 s allocated:
+b684 b684 s 	;called following index to see if block allocated
+b684 b684 d 2ae5bf
+b684 b684 u 03 01
+b684 b684 s 	lhld arecord!
+b687 b687 d 7d
+b687 b687 u 01 01
+b687 b687 s  mov a,l!
+b688 b688 d b4
+b688 b688 u 01 01
+b688 b688 s  ora h!
+b689 b689 d c9
+b689 b689 u 01 01
+b689 b689 s  ret
+b68a b68a s ;
+b68a b68a s atran:
+b68a b68a s 	;compute actual record address, assuming index called
+b68a b68a d 3ac3bf
+b68a b68a u 03 01
+b68a b68a s 	lda blkshf ;shift count to reg A
+b68d b68d d 2ae5bf
+b68d b68d u 03 01
+b68d b68d s 	lhld arecord
+b690 b690 s 	atran0:
+b690 b690 d 29
+b690 b690 u 01 01
+b690 b690 s 		dad h!
+b691 b691 d 3d
+b691 b691 u 01 01
+b691 b691 s  dcr a!
+b692 b692 d c290b6
+b692 b692 u 03 01
+b692 b692 s  jnz atran0 ;shl(arecord,blkshf)
+b695 b695 d 22e7bf
+b695 b695 u 03 01
+b695 b695 s 		shld arecord1		;save shifted block #  
+b698 b698 d 3ac4bf
+b698 b698 u 03 01
+b698 b698 s 	lda blkmsk!
+b69b b69b d 4f
+b69b b69b u 01 01
+b69b b69b s  mov c,a ;mask value to C
+b69c b69c d 3ae3bf
+b69c b69c u 03 01
+b69c b69c s 	lda vrecord!
+b69f b69f d a1
+b69f b69f u 01 01
+b69f b69f s  ana c ;masked value in A
+b6a0 b6a0 d b5
+b6a0 b6a0 u 01 01
+b6a0 b6a0 s 	ora l!
+b6a1 b6a1 d 6f
+b6a1 b6a1 u 01 01
+b6a1 b6a1 s  mov l,a ;to HL
+b6a2 b6a2 d 22e5bf
+b6a2 b6a2 u 03 01
+b6a2 b6a2 s 	shld arecord ;arecord=HL or (vrecord and blkmsk)
+b6a5 b6a5 d c9
+b6a5 b6a5 u 01 01
+b6a5 b6a5 s 	ret
+b6a6 b6a6 s ;
+b6a6 b6a6 s getexta:
+b6a6 b6a6 s 	;get current extent field address to A
+b6a6 b6a6 d 2a43b5
+b6a6 b6a6 u 03 01
+b6a6 b6a6 s 	lhld info!
+b6a9 b6a9 d 110c00
+b6a9 b6a9 u 03 01
+b6a9 b6a9 s  lxi d,extnum!
+b6ac b6ac d 19
+b6ac b6ac u 01 01
+b6ac b6ac s  dad d ;HL=.fcb(extnum)
+b6ad b6ad d c9
+b6ad b6ad u 01 01
+b6ad b6ad s 	ret
+b6ae b6ae s ;
+b6ae b6ae s getfcba:
+b6ae b6ae s 	;compute reccnt and nxtrec addresses for get/setfcb
+b6ae b6ae d 2a43b5
+b6ae b6ae u 03 01
+b6ae b6ae s 	lhld info!
+b6b1 b6b1 d 110f00
+b6b1 b6b1 u 03 01
+b6b1 b6b1 s  lxi d,reccnt!
+b6b4 b6b4 d 19
+b6b4 b6b4 u 01 01
+b6b4 b6b4 s  dad d!
+b6b5 b6b5 d eb
+b6b5 b6b5 u 01 01
+b6b5 b6b5 s  xchg ;DE=.fcb(reccnt)
+b6b6 b6b6 d 211100
+b6b6 b6b6 u 03 01
+b6b6 b6b6 s 	lxi h,(nxtrec-reccnt)!
+b6b9 b6b9 d 19
+b6b9 b6b9 u 01 01
+b6b9 b6b9 s  dad d ;HL=.fcb(nxtrec)
+b6ba b6ba d c9
+b6ba b6ba u 01 01
+b6ba b6ba s 	ret
+b6bb b6bb s ;
+b6bb b6bb s getfcb:
+b6bb b6bb s 	;set variables from currently addressed fcb
+b6bb b6bb d cdaeb6
+b6bb b6bb u 03 01
+b6bb b6bb s 	call getfcba ;addresses in DE, HL
+b6be b6be d 7e
+b6be b6be u 01 01
+b6be b6be s 	mov a,m!
+b6bf b6bf d 32e3bf
+b6bf b6bf u 03 01
+b6bf b6bf s  sta vrecord ;vrecord=fcb(nxtrec)
+b6c2 b6c2 d eb
+b6c2 b6c2 u 01 01
+b6c2 b6c2 s 	xchg!
+b6c3 b6c3 d 7e
+b6c3 b6c3 u 01 01
+b6c3 b6c3 s  mov a,m!
+b6c4 b6c4 d 32e1bf
+b6c4 b6c4 u 03 01
+b6c4 b6c4 s  sta rcount ;rcount=fcb(reccnt)
+b6c7 b6c7 d cda6b6
+b6c7 b6c7 u 03 01
+b6c7 b6c7 s 	call getexta ;HL=.fcb(extnum)
+b6ca b6ca d 3ac5bf
+b6ca b6ca u 03 01
+b6ca b6ca s 	lda extmsk ;extent mask to a
+b6cd b6cd d a6
+b6cd b6cd u 01 01
+b6cd b6cd s 	ana m ;fcb(extnum) and extmsk
+b6ce b6ce d 32e2bf
+b6ce b6ce u 03 01
+b6ce b6ce s 	sta extval
+b6d1 b6d1 d c9
+b6d1 b6d1 u 01 01
+b6d1 b6d1 s 	ret
+b6d2 b6d2 s ;
+b6d2 b6d2 s setfcb:
+b6d2 b6d2 s 	;place values back into current fcb
+b6d2 b6d2 d cdaeb6
+b6d2 b6d2 u 03 01
+b6d2 b6d2 s 	call getfcba ;addresses to DE, HL
+b6d5 b6d5 d 3ad5bf
+b6d5 b6d5 u 03 01
+b6d5 b6d5 s 	lda seqio
+b6d8 b6d8 d fe02
+b6d8 b6d8 u 02 01
+b6d8 b6d8 s 	cpi 02!
+b6da b6da d c2deb6
+b6da b6da u 03 01
+b6da b6da s  jnz setfcb1!
+b6dd b6dd d af
+b6dd b6dd u 01 01
+b6dd b6dd s  xra a	;check ranfill	
+b6de b6de s setfcb1:
+b6de b6de d 4f
+b6de b6de u 01 01
+b6de b6de s  	mov c,a ;=1 if sequential i/o
+b6df b6df d 3ae3bf
+b6df b6df u 03 01
+b6df b6df s 	lda vrecord!
+b6e2 b6e2 d 81
+b6e2 b6e2 u 01 01
+b6e2 b6e2 s  add c!
+b6e3 b6e3 d 77
+b6e3 b6e3 u 01 01
+b6e3 b6e3 s  mov m,a ;fcb(nxtrec)=vrecord+seqio
+b6e4 b6e4 d eb
+b6e4 b6e4 u 01 01
+b6e4 b6e4 s 	xchg!
+b6e5 b6e5 d 3ae1bf
+b6e5 b6e5 u 03 01
+b6e5 b6e5 s  lda rcount!
+b6e8 b6e8 d 77
+b6e8 b6e8 u 01 01
+b6e8 b6e8 s  mov m,a ;fcb(reccnt)=rcount
+b6e9 b6e9 d c9
+b6e9 b6e9 u 01 01
+b6e9 b6e9 s 	ret
+b6ea b6ea s ;
+b6ea b6ea s hlrotr:
+b6ea b6ea s 	;hl rotate right by amount C
+b6ea b6ea d 0c
+b6ea b6ea u 01 01
+b6ea b6ea s 	inr c ;in case zero
+b6eb b6eb d 0d
+b6eb b6eb u 01 01
+b6eb b6eb s 	hlrotr0: dcr c!
+b6ec b6ec d c8
+b6ec b6ec u 01 01
+b6ec b6ec s  rz ;return when zero
+b6ed b6ed d 7c
+b6ed b6ed u 01 01
+b6ed b6ed s 		mov a,h!
+b6ee b6ee d b7
+b6ee b6ee u 01 01
+b6ee b6ee s  ora a!
+b6ef b6ef d 1f
+b6ef b6ef u 01 01
+b6ef b6ef s  rar!
+b6f0 b6f0 d 67
+b6f0 b6f0 u 01 01
+b6f0 b6f0 s  mov h,a ;high byte
+b6f1 b6f1 d 7d
+b6f1 b6f1 u 01 01
+b6f1 b6f1 s 		mov a,l!
+b6f2 b6f2 d 1f
+b6f2 b6f2 u 01 01
+b6f2 b6f2 s  rar!
+b6f3 b6f3 d 6f
+b6f3 b6f3 u 01 01
+b6f3 b6f3 s  mov l,a ;low byte
+b6f4 b6f4 d c3ebb6
+b6f4 b6f4 u 03 01
+b6f4 b6f4 s 		jmp hlrotr0
+b6f7 b6f7 s ;
+b6f7 b6f7 s ;
+b6f7 b6f7 s compute$cs:
+b6f7 b6f7 s 	;compute checksum for current directory buffer
+b6f7 b6f7 d 0e80
+b6f7 b6f7 u 02 01
+b6f7 b6f7 s 	mvi c,recsiz ;size of directory buffer
+b6f9 b6f9 d 2ab9bf
+b6f9 b6f9 u 03 01
+b6f9 b6f9 s 	lhld buffa ;current directory buffer
+b6fc b6fc d af
+b6fc b6fc u 01 01
+b6fc b6fc s 	xra a ;clear checksum value
+b6fd b6fd s 	computecs0:
+b6fd b6fd d 86
+b6fd b6fd u 01 01
+b6fd b6fd s 		add m!
+b6fe b6fe d 23
+b6fe b6fe u 01 01
+b6fe b6fe s  inx h!
+b6ff b6ff d 0d
+b6ff b6ff u 01 01
+b6ff b6ff s  dcr c ;cs=cs+buff(recsiz-C)
+b700 b700 d c2fdb6
+b700 b700 u 03 01
+b700 b700 s 		jnz computecs0
+b703 b703 d c9
+b703 b703 u 01 01
+b703 b703 s 	ret ;with checksum in A
+b704 b704 s ;
+b704 b704 s hlrotl:
+b704 b704 s 	;rotate the mask in HL by amount in C
+b704 b704 d 0c
+b704 b704 u 01 01
+b704 b704 s 	inr c ;may be zero
+b705 b705 d 0d
+b705 b705 u 01 01
+b705 b705 s 	hlrotl0: dcr c!
+b706 b706 d c8
+b706 b706 u 01 01
+b706 b706 s  rz ;return if zero
+b707 b707 d 29
+b707 b707 u 01 01
+b707 b707 s 		dad h!
+b708 b708 d c305b7
+b708 b708 u 03 01
+b708 b708 s  jmp hlrotl0
+b70b b70b s ;
+b70b b70b s set$cdisk:
+b70b b70b s 	;set a "1" value in curdsk position of BC
+b70b b70b d c5
+b70b b70b u 01 01
+b70b b70b s 	push b ;save input parameter
+b70c b70c d 3a42b5
+b70c b70c u 03 01
+b70c b70c s 	lda curdsk!
+b70f b70f d 4f
+b70f b70f u 01 01
+b70f b70f s  mov c,a ;ready parameter for shift
+b710 b710 d 210100
+b710 b710 u 03 01
+b710 b710 s 	lxi h,1 ;number to shift
+b713 b713 d cd04b7
+b713 b713 u 03 01
+b713 b713 s 	call hlrotl ;HL = mask to integrate
+b716 b716 d c1
+b716 b716 u 01 01
+b716 b716 s 	pop b ;original mask
+b717 b717 d 79
+b717 b717 u 01 01
+b717 b717 s 	mov a,c!
+b718 b718 d b5
+b718 b718 u 01 01
+b718 b718 s  ora l!
+b719 b719 d 6f
+b719 b719 u 01 01
+b719 b719 s  mov l,a
+b71a b71a d 78
+b71a b71a u 01 01
+b71a b71a s 	mov a,b!
+b71b b71b d b4
+b71b b71b u 01 01
+b71b b71b s  ora h!
+b71c b71c d 67
+b71c b71c u 01 01
+b71c b71c s  mov h,a ;HL = mask or rol(1,curdsk)
+b71d b71d d c9
+b71d b71d u 01 01
+b71d b71d s 	ret
+b71e b71e s ;
+b71e b71e s nowrite:
+b71e b71e s 	;return true if dir checksum difference occurred
+b71e b71e d 2aadbf
+b71e b71e u 03 01
+b71e b71e s 	lhld rodsk!
+b721 b721 d 3a42b5
+b721 b721 u 03 01
+b721 b721 s  lda curdsk!
+b724 b724 d 4f
+b724 b724 u 01 01
+b724 b724 s  mov c,a!
+b725 b725 d cdeab6
+b725 b725 u 03 01
+b725 b725 s  call hlrotr
+b728 b728 d 7d
+b728 b728 u 01 01
+b728 b728 s 	mov a,l!
+b729 b729 d e601
+b729 b729 u 02 01
+b729 b729 s  ani 1b!
+b72b b72b d c9
+b72b b72b u 01 01
+b72b b72b s  ret ;non zero if nowrite
+b72c b72c s ;
+b72c b72c s set$ro:
+b72c b72c s 	;set current disk to read only
+b72c b72c d 21adbf
+b72c b72c u 03 01
+b72c b72c s 	lxi h,rodsk!
+b72f b72f d 4e
+b72f b72f u 01 01
+b72f b72f s  mov c,m!
+b730 b730 d 23
+b730 b730 u 01 01
+b730 b730 s  inx h!
+b731 b731 d 46
+b731 b731 u 01 01
+b731 b731 s  mov b,m
+b732 b732 d cd0bb7
+b732 b732 u 03 01
+b732 b732 s 	call set$cdisk ;sets bit to 1
+b735 b735 d 22adbf
+b735 b735 u 03 01
+b735 b735 s 	shld rodsk
+b738 b738 s 	;high water mark in directory goes to max
+b738 b738 d 2ac8bf
+b738 b738 u 03 01
+b738 b738 s 	lhld dirmax!
+b73b b73b d 23
+b73b b73b u 01 01
+b73b b73b s  inx h!
+b73c b73c d eb
+b73c b73c u 01 01
+b73c b73c s  xchg ;DE = directory max	
+b73d b73d d 2ab3bf
+b73d b73d u 03 01
+b73d b73d s 	lhld cdrmaxa ;HL = .cdrmax
+b740 b740 d 73
+b740 b740 u 01 01
+b740 b740 s 	mov m,e!
+b741 b741 d 23
+b741 b741 u 01 01
+b741 b741 s  inx h!
+b742 b742 d 72
+b742 b742 u 01 01
+b742 b742 s  mov m,d ;cdrmax = dirmax
+b743 b743 d c9
+b743 b743 u 01 01
+b743 b743 s 	ret
+b744 b744 s ;
+b744 b744 s check$rodir:
+b744 b744 s 	;check current directory element for read/only status
+b744 b744 d cd5eb7
+b744 b744 u 03 01
+b744 b744 s 	call getdptra ;address of element
+b747 b747 s ;						
+b747 b747 s check$rofile:
+b747 b747 s 	;check current buff(dptr) or fcb(0) for r/o status
+b747 b747 d 110900
+b747 b747 u 03 01
+b747 b747 s 	lxi d,rofile!
+b74a b74a d 19
+b74a b74a u 01 01
+b74a b74a s  dad d ;offset to ro bit
+b74b b74b d 7e
+b74b b74b u 01 01
+b74b b74b s 	mov a,m!
+b74c b74c d 17
+b74c b74c u 01 01
+b74c b74c s  ral!
+b74d b74d d d0
+b74d b74d u 01 01
+b74d b74d s  rnc ;return if not set
+b74e b74e d 210fb2
+b74e b74e u 03 01
+b74e b74e s 	lxi h,roferr!
+b751 b751 d c34ab5
+b751 b751 u 03 01
+b751 b751 s  jmp goerr			;
+b754 b754 s ;	jmp rof$error ;exit to read only disk message
+b754 b754 s ;
+b754 b754 s ;
+b754 b754 s check$write:
+b754 b754 s 	;check for write protected disk
+b754 b754 d cd1eb7
+b754 b754 u 03 01
+b754 b754 s 	call nowrite!
+b757 b757 d c8
+b757 b757 u 01 01
+b757 b757 s  rz ;ok to write if not rodsk
+b758 b758 d 210db2
+b758 b758 u 03 01
+b758 b758 s 	lxi h,roderr!
+b75b b75b d c34ab5
+b75b b75b u 03 01
+b75b b75b s  jmp goerr
+b75e b75e s ;	jmp rod$error ;read only disk error
+b75e b75e s ;
+b75e b75e s getdptra:
+b75e b75e s 	;compute the address of a directory element at
+b75e b75e s 	;positon dptr in the buffer
+b75e b75e d 2ab9bf
+b75e b75e u 03 01
+b75e b75e s 	lhld buffa!
+b761 b761 d 3ae9bf
+b761 b761 u 03 01
+b761 b761 s  lda dptr			;
+b764 b764 s addh:
+b764 b764 s 	;HL = HL + A
+b764 b764 d 85
+b764 b764 u 01 01
+b764 b764 s 	add l!
+b765 b765 d 6f
+b765 b765 u 01 01
+b765 b765 s  mov l,a!
+b766 b766 d d0
+b766 b766 u 01 01
+b766 b766 s  rnc
+b767 b767 s 	;overflow to H
+b767 b767 d 24
+b767 b767 u 01 01
+b767 b767 s 	inr h!
+b768 b768 d c9
+b768 b768 u 01 01
+b768 b768 s  ret
+b769 b769 s ;
+b769 b769 s ;
+b769 b769 s getmodnum:
+b769 b769 s 	;compute the address of the module number 
+b769 b769 s 	;bring module number to accumulator
+b769 b769 s 	;(high order bit is fwf (file write flag)
+b769 b769 d 2a43b5
+b769 b769 u 03 01
+b769 b769 s 	lhld info!
+b76c b76c d 110e00
+b76c b76c u 03 01
+b76c b76c s  lxi d,modnum!
+b76f b76f d 19
+b76f b76f u 01 01
+b76f b76f s  dad d ;HL=.fcb(modnum)
+b770 b770 d 7e
+b770 b770 u 01 01
+b770 b770 s 	mov a,m!
+b771 b771 d c9
+b771 b771 u 01 01
+b771 b771 s  ret ;A=fcb(modnum)
+b772 b772 s ;
+b772 b772 s clrmodnum:
+b772 b772 s 	;clear the module number field for user open/make
+b772 b772 d cd69b7
+b772 b772 u 03 01
+b772 b772 s 	call getmodnum!
+b775 b775 d 3600
+b775 b775 u 02 01
+b775 b775 s  mvi m,0 ;fcb(modnum)=0
+b777 b777 d c9
+b777 b777 u 01 01
+b777 b777 s 	ret
+b778 b778 s ;
+b778 b778 s setfwf:
+b778 b778 d cd69b7
+b778 b778 u 03 01
+b778 b778 s 	call getmodnum ;HL=.fcb(modnum), A=fcb(modnum)
+b77b b77b s 	;set fwf (file write flag) to "1"
+b77b b77b d f680
+b77b b77b u 02 01
+b77b b77b s 	ori fwfmsk!
+b77d b77d d 77
+b77d b77d u 01 01
+b77d b77d s  mov m,a ;fcb(modnum)=fcb(modnum) or 80h
+b77e b77e s 	;also returns non zero in accumulator
+b77e b77e d c9
+b77e b77e u 01 01
+b77e b77e s 	ret
+b77f b77f s ;
+b77f b77f s ;
+b77f b77f s compcdr:
+b77f b77f s 	;return cy if cdrmax > dcnt
+b77f b77f d 2aeabf
+b77f b77f u 03 01
+b77f b77f s 	lhld dcnt!
+b782 b782 d eb
+b782 b782 u 01 01
+b782 b782 s  xchg ;DE = directory counter
+b783 b783 d 2ab3bf
+b783 b783 u 03 01
+b783 b783 s 	lhld cdrmaxa ;HL=.cdrmax
+b786 b786 d 7b
+b786 b786 u 01 01
+b786 b786 s 	mov a,e!
+b787 b787 d 96
+b787 b787 u 01 01
+b787 b787 s  sub m ;low(dcnt) - low(cdrmax)
+b788 b788 d 23
+b788 b788 u 01 01
+b788 b788 s 	inx h ;HL = .cdrmax+1
+b789 b789 d 7a
+b789 b789 u 01 01
+b789 b789 s 	mov a,d!
+b78a b78a d 9e
+b78a b78a u 01 01
+b78a b78a s  sbb m ;hig(dcnt) - hig(cdrmax)
+b78b b78b s 	;condition dcnt - cdrmax  produces cy if cdrmax>dcnt
+b78b b78b d c9
+b78b b78b u 01 01
+b78b b78b s 	ret
+b78c b78c s ;
+b78c b78c s setcdr:
+b78c b78c s 	;if not (cdrmax > dcnt) then cdrmax = dcnt+1
+b78c b78c d cd7fb7
+b78c b78c u 03 01
+b78c b78c s 	call compcdr
+b78f b78f d d8
+b78f b78f u 01 01
+b78f b78f s 	rc ;return if cdrmax > dcnt
+b790 b790 s 	;otherwise, HL = .cdrmax+1, DE = dcnt
+b790 b790 d 13
+b790 b790 u 01 01
+b790 b790 s 	inx d!
+b791 b791 d 72
+b791 b791 u 01 01
+b791 b791 s  mov m,d!
+b792 b792 d 2b
+b792 b792 u 01 01
+b792 b792 s  dcx h!
+b793 b793 d 73
+b793 b793 u 01 01
+b793 b793 s  mov m,e
+b794 b794 d c9
+b794 b794 u 01 01
+b794 b794 s 	ret
+b795 b795 s ;
+b795 b795 s subdh:
+b795 b795 s 	;compute HL = DE - HL
+b795 b795 d 7b
+b795 b795 u 01 01
+b795 b795 s 	mov a,e!
+b796 b796 d 95
+b796 b796 u 01 01
+b796 b796 s  sub l!
+b797 b797 d 6f
+b797 b797 u 01 01
+b797 b797 s  mov l,a!
+b798 b798 d 7a
+b798 b798 u 01 01
+b798 b798 s  mov a,d!
+b799 b799 d 9c
+b799 b799 u 01 01
+b799 b799 s  sbb h!
+b79a b79a d 67
+b79a b79a u 01 01
+b79a b79a s  mov h,a
+b79b b79b d c9
+b79b b79b u 01 01
+b79b b79b s 	ret
+b79c b79c s ;
+b79c b79c s newchecksum:
+b79c b79c d 0eff
+b79c b79c u 02 01
+b79c b79c s 	mvi c,true ;drop through to compute new checksum
+b79e b79e s checksum:
+b79e b79e s 	;compute current checksum record and update the
+b79e b79e s 	;directory element if C=true, or check for = if not
+b79e b79e s 	;drec < chksiz?
+b79e b79e d 2aecbf
+b79e b79e u 03 01
+b79e b79e s 	lhld drec!
+b7a1 b7a1 d eb
+b7a1 b7a1 u 01 01
+b7a1 b7a1 s  xchg!
+b7a2 b7a2 d 2accbf
+b7a2 b7a2 u 03 01
+b7a2 b7a2 s  lhld chksiz!
+b7a5 b7a5 d cd95b7
+b7a5 b7a5 u 03 01
+b7a5 b7a5 s  call subdh ;DE-HL
+b7a8 b7a8 d d0
+b7a8 b7a8 u 01 01
+b7a8 b7a8 s 	rnc ;skip checksum if past checksum vector size
+b7a9 b7a9 s 		;drec < chksiz, so continue
+b7a9 b7a9 d c5
+b7a9 b7a9 u 01 01
+b7a9 b7a9 s 		push b ;save init flag
+b7aa b7aa d cdf7b6
+b7aa b7aa u 03 01
+b7aa b7aa s 		call compute$cs ;check sum value to A
+b7ad b7ad d 2abdbf
+b7ad b7ad u 03 01
+b7ad b7ad s 		lhld checka ;address of check sum vector
+b7b0 b7b0 d eb
+b7b0 b7b0 u 01 01
+b7b0 b7b0 s 		xchg
+b7b1 b7b1 d 2aecbf
+b7b1 b7b1 u 03 01
+b7b1 b7b1 s 		lhld drec ;value of drec
+b7b4 b7b4 d 19
+b7b4 b7b4 u 01 01
+b7b4 b7b4 s 		dad d ;HL = .check(drec)
+b7b5 b7b5 d c1
+b7b5 b7b5 u 01 01
+b7b5 b7b5 s 		pop b ;recall true=0ffh or false=00 to C
+b7b6 b7b6 d 0c
+b7b6 b7b6 u 01 01
+b7b6 b7b6 s 		inr c ;0ffh produces zero flag
+b7b7 b7b7 d cac4b7
+b7b7 b7b7 u 03 01
+b7b7 b7b7 s 		jz initial$cs
+b7ba b7ba s 			;not initializing, compare
+b7ba b7ba d be
+b7ba b7ba u 01 01
+b7ba b7ba s 			cmp m ;compute$cs=check(drec)?
+b7bb b7bb d c8
+b7bb b7bb u 01 01
+b7bb b7bb s 			rz ;no message if ok
+b7bc b7bc s 			;checksum error, are we beyond
+b7bc b7bc s 			;the end of the disk?
+b7bc b7bc d cd7fb7
+b7bc b7bc u 03 01
+b7bc b7bc s 			call compcdr
+b7bf b7bf d d0
+b7bf b7bf u 01 01
+b7bf b7bf s 			rnc ;no message if so
+b7c0 b7c0 d cd2cb7
+b7c0 b7c0 u 03 01
+b7c0 b7c0 s 			call set$ro ;read/only disk set
+b7c3 b7c3 d c9
+b7c3 b7c3 u 01 01
+b7c3 b7c3 s 			ret
+b7c4 b7c4 s 		initial$cs:
+b7c4 b7c4 s 			;initializing the checksum
+b7c4 b7c4 d 77
+b7c4 b7c4 u 01 01
+b7c4 b7c4 s 			mov m,a!
+b7c5 b7c5 d c9
+b7c5 b7c5 u 01 01
+b7c5 b7c5 s  ret
+b7c6 b7c6 s ;
+b7c6 b7c6 s ;
+b7c6 b7c6 s wrdir:
+b7c6 b7c6 s 	;write the current directory entry, set checksum
+b7c6 b7c6 d cd9cb7
+b7c6 b7c6 u 03 01
+b7c6 b7c6 s 	call newchecksum ;initialize entry
+b7c9 b7c9 d cde0b7
+b7c9 b7c9 u 03 01
+b7c9 b7c9 s 	call setdir ;directory dma
+b7cc b7cc d 0e01
+b7cc b7cc u 02 01
+b7cc b7cc s 	mvi c,1 ;indicates a write directory operation
+b7ce b7ce d cdb8b5
+b7ce b7ce u 03 01
+b7ce b7ce s 	call wrbuff ;write the buffer
+b7d1 b7d1 d c3dab7
+b7d1 b7d1 u 03 01
+b7d1 b7d1 s         jmp setdata ;to data dma address
+b7d4 b7d4 s 	;ret
+b7d4 b7d4 s ;
+b7d4 b7d4 s rd$dir:
+b7d4 b7d4 s 	;read a directory entry into the directory buffer
+b7d4 b7d4 d cde0b7
+b7d4 b7d4 u 03 01
+b7d4 b7d4 s 	call setdir ;directory dma
+b7d7 b7d7 d cdb2b5
+b7d7 b7d7 u 03 01
+b7d7 b7d7 s 	call rdbuff ;directory record loaded
+b7da b7da s         ; jmp setdata to data dma address    
+b7da b7da s 	;ret
+b7da b7da s ;
+b7da b7da s setdata:
+b7da b7da s 	;set data dma address
+b7da b7da d 21b1bf
+b7da b7da u 03 01
+b7da b7da s 	lxi h,dmaad!
+b7dd b7dd d c3e3b7
+b7dd b7dd u 03 01
+b7dd b7dd s  jmp setdma ;to complete the call
+b7e0 b7e0 s ;
+b7e0 b7e0 s setdir:
+b7e0 b7e0 s 	;set directory dma address
+b7e0 b7e0 d 21b9bf
+b7e0 b7e0 u 03 01
+b7e0 b7e0 s 	lxi h,buffa  ;jmp setdma to complete call     
+b7e3 b7e3 s ;
+b7e3 b7e3 s setdma:
+b7e3 b7e3 s 	;HL=.dma address to set (i.e., buffa or dmaad)
+b7e3 b7e3 d 4e
+b7e3 b7e3 u 01 01
+b7e3 b7e3 s 	mov c,m!
+b7e4 b7e4 d 23
+b7e4 b7e4 u 01 01
+b7e4 b7e4 s  inx h!
+b7e5 b7e5 d 46
+b7e5 b7e5 u 01 01
+b7e5 b7e5 s  mov b,m ;parameter ready
+b7e6 b7e6 d c324c0
+b7e6 b7e6 u 03 01
+b7e6 b7e6 s 	jmp setdmaf
+b7e9 b7e9 s ;
+b7e9 b7e9 s ;
+b7e9 b7e9 s dir$to$user:
+b7e9 b7e9 s 	;copy the directory entry to the user buffer
+b7e9 b7e9 s 	;after call to search or searchn by user code
+b7e9 b7e9 d 2ab9bf
+b7e9 b7e9 u 03 01
+b7e9 b7e9 s 	lhld buffa!
+b7ec b7ec d eb
+b7ec b7ec u 01 01
+b7ec b7ec s  xchg ;source is directory buffer
+b7ed b7ed d 2ab1bf
+b7ed b7ed u 03 01
+b7ed b7ed s 	lhld dmaad ;destination is user dma address
+b7f0 b7f0 d 0e80
+b7f0 b7f0 u 02 01
+b7f0 b7f0 s 	mvi c,recsiz ;copy entire record
+b7f2 b7f2 d c34fb5
+b7f2 b7f2 u 03 01
+b7f2 b7f2 s 	jmp move
+b7f5 b7f5 s 	;ret
+b7f5 b7f5 s ;
+b7f5 b7f5 s end$of$dir:
+b7f5 b7f5 s 	;return zero flag if at end of directory, non zero
+b7f5 b7f5 s 	;if not at end (end of dir if dcnt = 0ffffh)
+b7f5 b7f5 d 21eabf
+b7f5 b7f5 u 03 01
+b7f5 b7f5 s 	lxi h,dcnt!
+b7f8 b7f8 d 7e
+b7f8 b7f8 u 01 01
+b7f8 b7f8 s  mov a,m ;may be 0ffh
+b7f9 b7f9 d 23
+b7f9 b7f9 u 01 01
+b7f9 b7f9 s 	inx h!
+b7fa b7fa d be
+b7fa b7fa u 01 01
+b7fa b7fa s  cmp m ;low(dcnt) = high(dcnt)?
+b7fb b7fb d c0
+b7fb b7fb u 01 01
+b7fb b7fb s 	rnz ;non zero returned if different
+b7fc b7fc s 	;high and low the same, = 0ffh?
+b7fc b7fc d 3c
+b7fc b7fc u 01 01
+b7fc b7fc s 	inr a ;0ffh becomes 00 if so
+b7fd b7fd d c9
+b7fd b7fd u 01 01
+b7fd b7fd s 	ret
+b7fe b7fe s ;
+b7fe b7fe s set$end$dir:
+b7fe b7fe s 	;set dcnt to the end of the directory
+b7fe b7fe d 21ffff
+b7fe b7fe u 03 01
+b7fe b7fe s 	lxi h,enddir!
+b801 b801 d 22eabf
+b801 b801 u 03 01
+b801 b801 s  shld dcnt!
+b804 b804 d c9
+b804 b804 u 01 01
+b804 b804 s  ret
+b805 b805 s ;
+b805 b805 s read$dir:
+b805 b805 s 	;read next directory entry, with C=true if initializing
+b805 b805 d 2ac8bf
+b805 b805 u 03 01
+b805 b805 s 	lhld dirmax!
+b808 b808 d eb
+b808 b808 u 01 01
+b808 b808 s  xchg ;in preparation for subtract
+b809 b809 d 2aeabf
+b809 b809 u 03 01
+b809 b809 s 	lhld dcnt!
+b80c b80c d 23
+b80c b80c u 01 01
+b80c b80c s  inx h!
+b80d b80d d 22eabf
+b80d b80d u 03 01
+b80d b80d s  shld dcnt ;dcnt=dcnt+1
+b810 b810 s 	;continue while dirmax >= dcnt (dirmax-dcnt no cy)
+b810 b810 d cd95b7
+b810 b810 u 03 01
+b810 b810 s 	call subdh ;DE-HL
+b813 b813 d d219b8
+b813 b813 u 03 01
+b813 b813 s 	jnc read$dir0
+b816 b816 s 		;yes, set dcnt to end of directory
+b816 b816 d c3feb7
+b816 b816 u 03 01
+b816 b816 s 		jmp set$end$dir			;
+b819 b819 s ;		ret				;
+b819 b819 s 	read$dir0:
+b819 b819 s 		;not at end of directory, seek next element
+b819 b819 s 		;initialization flag is in C
+b819 b819 d 3aeabf
+b819 b819 u 03 01
+b819 b819 s 		lda dcnt!
+b81c b81c d e603
+b81c b81c u 02 01
+b81c b81c s  ani dskmsk ;low(dcnt) and dskmsk
+b81e b81e d 0605
+b81e b81e u 02 01
+b81e b81e s 		mvi b,fcbshf ;to multiply by fcb size
+b820 b820 s 		read$dir1:
+b820 b820 d 87
+b820 b820 u 01 01
+b820 b820 s 			add a!
+b821 b821 d 05
+b821 b821 u 01 01
+b821 b821 s  dcr b!
+b822 b822 d c220b8
+b822 b822 u 03 01
+b822 b822 s  jnz read$dir1
+b825 b825 s 		;A = (low(dcnt) and dskmsk) shl fcbshf
+b825 b825 d 32e9bf
+b825 b825 u 03 01
+b825 b825 s 		sta dptr ;ready for next dir operation
+b828 b828 d b7
+b828 b828 u 01 01
+b828 b828 s 		ora a!
+b829 b829 d c0
+b829 b829 u 01 01
+b829 b829 s  rnz ;return if not a new record
+b82a b82a d c5
+b82a b82a u 01 01
+b82a b82a s 		push b ;save initialization flag C
+b82b b82b d cdc3b5
+b82b b82b u 03 01
+b82b b82b s 		call seek$dir ;seek proper record
+b82e b82e d cdd4b7
+b82e b82e u 03 01
+b82e b82e s 		call rd$dir ;read the directory record
+b831 b831 d c1
+b831 b831 u 01 01
+b831 b831 s 		pop b ;recall initialization flag
+b832 b832 d c39eb7
+b832 b832 u 03 01
+b832 b832 s 		jmp checksum ;checksum the directory elt
+b835 b835 s 		;ret
+b835 b835 s ;
+b835 b835 s ;
+b835 b835 s getallocbit:
+b835 b835 s 	;given allocation vector position BC, return with byte
+b835 b835 s 	;containing BC shifted so that the least significant
+b835 b835 s 	;bit is in the low order accumulator position.  HL is
+b835 b835 s 	;the address of the byte for possible replacement in
+b835 b835 s 	;memory upon return, and D contains the number of shifts
+b835 b835 s 	;required to place the returned value back into position
+b835 b835 d 79
+b835 b835 u 01 01
+b835 b835 s 	mov a,c!
+b836 b836 d e607
+b836 b836 u 02 01
+b836 b836 s  ani 111b!
+b838 b838 d 3c
+b838 b838 u 01 01
+b838 b838 s  inr a!
+b839 b839 d 5f
+b839 b839 u 01 01
+b839 b839 s  mov e,a!
+b83a b83a d 57
+b83a b83a u 01 01
+b83a b83a s  mov d,a
+b83b b83b s 	;d and e both contain the number of bit positions to shift
+b83b b83b d 79
+b83b b83b u 01 01
+b83b b83b s 	mov a,c!
+b83c b83c d 0f
+b83c b83c u 01 01
+b83c b83c s  rrc!
+b83d b83d d 0f
+b83d b83d u 01 01
+b83d b83d s  rrc!
+b83e b83e d 0f
+b83e b83e u 01 01
+b83e b83e s  rrc!
+b83f b83f d e61f
+b83f b83f u 02 01
+b83f b83f s  ani 11111b!
+b841 b841 d 4f
+b841 b841 u 01 01
+b841 b841 s  mov c,a ;C shr 3 to C
+b842 b842 d 78
+b842 b842 u 01 01
+b842 b842 s 	mov a,b!
+b843 b843 d 87
+b843 b843 u 01 01
+b843 b843 s  add a!
+b844 b844 d 87
+b844 b844 u 01 01
+b844 b844 s  add a!
+b845 b845 d 87
+b845 b845 u 01 01
+b845 b845 s  add a!
+b846 b846 d 87
+b846 b846 u 01 01
+b846 b846 s  add a!
+b847 b847 d 87
+b847 b847 u 01 01
+b847 b847 s  add a ;B shl 5
+b848 b848 d b1
+b848 b848 u 01 01
+b848 b848 s 	ora c!
+b849 b849 d 4f
+b849 b849 u 01 01
+b849 b849 s  mov c,a ;bbbccccc to C
+b84a b84a d 78
+b84a b84a u 01 01
+b84a b84a s 	mov a,b!
+b84b b84b d 0f
+b84b b84b u 01 01
+b84b b84b s  rrc!
+b84c b84c d 0f
+b84c b84c u 01 01
+b84c b84c s  rrc!
+b84d b84d d 0f
+b84d b84d u 01 01
+b84d b84d s  rrc!
+b84e b84e d e61f
+b84e b84e u 02 01
+b84e b84e s  ani 11111b!
+b850 b850 d 47
+b850 b850 u 01 01
+b850 b850 s  mov b,a ;BC shr 3 to BC
+b851 b851 d 2abfbf
+b851 b851 u 03 01
+b851 b851 s 	lhld alloca ;base address of allocation vector
+b854 b854 d 09
+b854 b854 u 01 01
+b854 b854 s 	dad b!
+b855 b855 d 7e
+b855 b855 u 01 01
+b855 b855 s  mov a,m ;byte to A, hl = .alloc(BC shr 3)
+b856 b856 s 	;now move the bit to the low order position of A
+b856 b856 d 07
+b856 b856 u 01 01
+b856 b856 s 	rotl: rlc!
+b857 b857 d 1d
+b857 b857 u 01 01
+b857 b857 s  dcr e!
+b858 b858 d c256b8
+b858 b858 u 03 01
+b858 b858 s  jnz rotl!
+b85b b85b d c9
+b85b b85b u 01 01
+b85b b85b s  ret
+b85c b85c s ;
+b85c b85c s ;
+b85c b85c s setallocbit:
+b85c b85c s 	;BC is the bit position of ALLOC to set or reset.  The
+b85c b85c s 	;value of the bit is in register E.
+b85c b85c d d5
+b85c b85c u 01 01
+b85c b85c s 	push d!
+b85d b85d d cd35b8
+b85d b85d u 03 01
+b85d b85d s  call getallocbit ;shifted val A, count in D
+b860 b860 d e6fe
+b860 b860 u 02 01
+b860 b860 s 	ani 1111$1110b ;mask low bit to zero (may be set)
+b862 b862 d c1
+b862 b862 u 01 01
+b862 b862 s 	pop b!
+b863 b863 d b1
+b863 b863 u 01 01
+b863 b863 s  ora c ;low bit of C is masked into A
+b864 b864 s ;	jmp rotr ;to rotate back into proper position	
+b864 b864 s 	;ret
+b864 b864 s rotr:
+b864 b864 s 	;byte value from ALLOC is in register A, with shift count
+b864 b864 s 	;in register C (to place bit back into position), and
+b864 b864 s 	;target ALLOC position in registers HL, rotate and replace
+b864 b864 d 0f
+b864 b864 u 01 01
+b864 b864 s 	rrc!
+b865 b865 d 15
+b865 b865 u 01 01
+b865 b865 s  dcr d!
+b866 b866 d c264b8
+b866 b866 u 03 01
+b866 b866 s  jnz rotr ;back into position
+b869 b869 d 77
+b869 b869 u 01 01
+b869 b869 s 	mov m,a ;back to ALLOC
+b86a b86a d c9
+b86a b86a u 01 01
+b86a b86a s 	ret
+b86b b86b s ;
+b86b b86b s scandm:
+b86b b86b s 	;scan the disk map addressed by dptr for non-zero
+b86b b86b s 	;entries, the allocation vector entry corresponding
+b86b b86b s 	;to a non-zero entry is set to the value of C (0,1)
+b86b b86b d cd5eb7
+b86b b86b u 03 01
+b86b b86b s 	call getdptra ;HL = buffa + dptr
+b86e b86e s 	;HL addresses the beginning of the directory entry
+b86e b86e d 111000
+b86e b86e u 03 01
+b86e b86e s 	lxi d,dskmap!
+b871 b871 d 19
+b871 b871 u 01 01
+b871 b871 s  dad d ;hl now addresses the disk map
+b872 b872 d c5
+b872 b872 u 01 01
+b872 b872 s 	push b ;save the 0/1 bit to set
+b873 b873 d 0e11
+b873 b873 u 02 01
+b873 b873 s 	mvi c,fcblen-dskmap+1 ;size of single byte disk map + 1
+b875 b875 s 	scandm0:
+b875 b875 s 		;loop once for each disk map entry
+b875 b875 d d1
+b875 b875 u 01 01
+b875 b875 s 		pop d ;recall bit parity
+b876 b876 d 0d
+b876 b876 u 01 01
+b876 b876 s 		dcr c!
+b877 b877 d c8
+b877 b877 u 01 01
+b877 b877 s  rz ;all done scanning?
+b878 b878 s 		;no, get next entry for scan
+b878 b878 d d5
+b878 b878 u 01 01
+b878 b878 s 		push d ;replace bit parity
+b879 b879 d 3addbf
+b879 b879 u 03 01
+b879 b879 s 		lda single!
+b87c b87c d b7
+b87c b87c u 01 01
+b87c b87c s  ora a!
+b87d b87d d ca88b8
+b87d b87d u 03 01
+b87d b87d s  jz scandm1
+b880 b880 s 			;single byte scan operation
+b880 b880 d c5
+b880 b880 u 01 01
+b880 b880 s 			push b ;save counter
+b881 b881 d e5
+b881 b881 u 01 01
+b881 b881 s 			push h ;save map address
+b882 b882 d 4e
+b882 b882 u 01 01
+b882 b882 s 			mov c,m!
+b883 b883 d 0600
+b883 b883 u 02 01
+b883 b883 s  mvi b,0 ;BC=block#
+b885 b885 d c38eb8
+b885 b885 u 03 01
+b885 b885 s 			jmp scandm2
+b888 b888 s 		scandm1:
+b888 b888 s 			;double byte scan operation
+b888 b888 d 0d
+b888 b888 u 01 01
+b888 b888 s 			dcr c ;count for double byte
+b889 b889 d c5
+b889 b889 u 01 01
+b889 b889 s 			push b ;save counter
+b88a b88a d 4e
+b88a b88a u 01 01
+b88a b88a s 			mov c,m!
+b88b b88b d 23
+b88b b88b u 01 01
+b88b b88b s  inx h!
+b88c b88c d 46
+b88c b88c u 01 01
+b88c b88c s  mov b,m ;BC=block#
+b88d b88d d e5
+b88d b88d u 01 01
+b88d b88d s 			push h ;save map address
+b88e b88e s 		scandm2:
+b88e b88e s 			;arrive here with BC=block#, E=0/1
+b88e b88e d 79
+b88e b88e u 01 01
+b88e b88e s 			mov a,c!
+b88f b88f d b0
+b88f b88f u 01 01
+b88f b88f s  ora b ;skip if = 0000
+b890 b890 d ca9db8
+b890 b890 u 03 01
+b890 b890 s 			jz scanm3
+b893 b893 d 2ac6bf
+b893 b893 u 03 01
+b893 b893 s 				lhld maxall	;check invalid index
+b896 b896 d 7d
+b896 b896 u 01 01
+b896 b896 s 			mov a,l!
+b897 b897 d 91
+b897 b897 u 01 01
+b897 b897 s  sub c!
+b898 b898 d 7c
+b898 b898 u 01 01
+b898 b898 s  mov a,h!
+b899 b899 d 98
+b899 b899 u 01 01
+b899 b899 s  sbb b	;maxall - block#
+b89a b89a d d45cb8
+b89a b89a u 03 01
+b89a b89a s 			cnc set$alloc$bit			;
+b89d b89d s 			;bit set to 0/1
+b89d b89d s 		scanm3:						;
+b89d b89d d e1
+b89d b89d u 01 01
+b89d b89d s 			pop h!
+b89e b89e d 23
+b89e b89e u 01 01
+b89e b89e s  inx h ;to next bit position
+b89f b89f d c1
+b89f b89f u 01 01
+b89f b89f s 			pop b ;recall counter
+b8a0 b8a0 d c375b8
+b8a0 b8a0 u 03 01
+b8a0 b8a0 s 			jmp scandm0 ;for another item
+b8a3 b8a3 s ;
+b8a3 b8a3 s initialize:
+b8a3 b8a3 s 	;initialize the current disk
+b8a3 b8a3 s 	;lret = false ;set to true if $ file exists
+b8a3 b8a3 s 	;compute the length of the allocation vector - 2
+b8a3 b8a3 d 2ac6bf
+b8a3 b8a3 u 03 01
+b8a3 b8a3 s 	lhld maxall!
+b8a6 b8a6 d 0e03
+b8a6 b8a6 u 02 01
+b8a6 b8a6 s  mvi c,3 ;perform maxall/8
+b8a8 b8a8 s 	;number of bytes in alloc vector is (maxall/8)+1
+b8a8 b8a8 d cdeab6
+b8a8 b8a8 u 03 01
+b8a8 b8a8 s 	call hlrotr!
+b8ab b8ab d 23
+b8ab b8ab u 01 01
+b8ab b8ab s  inx h ;HL = maxall/8+1
+b8ac b8ac d 44
+b8ac b8ac u 01 01
+b8ac b8ac s 	mov b,h!
+b8ad b8ad d 4d
+b8ad b8ad u 01 01
+b8ad b8ad s  mov c,l ;count down BC til zero
+b8ae b8ae d 2abfbf
+b8ae b8ae u 03 01
+b8ae b8ae s 	lhld alloca ;base of allocation vector
+b8b1 b8b1 s 	;fill the allocation vector with zeros
+b8b1 b8b1 s 	initial0:
+b8b1 b8b1 d 3600
+b8b1 b8b1 u 02 01
+b8b1 b8b1 s 		mvi m,0!
+b8b3 b8b3 d 23
+b8b3 b8b3 u 01 01
+b8b3 b8b3 s  inx h ;alloc(i)=0
+b8b4 b8b4 d 0b
+b8b4 b8b4 u 01 01
+b8b4 b8b4 s 		dcx b ;count length down
+b8b5 b8b5 d 78
+b8b5 b8b5 u 01 01
+b8b5 b8b5 s 		mov a,b!
+b8b6 b8b6 d b1
+b8b6 b8b6 u 01 01
+b8b6 b8b6 s  ora c!
+b8b7 b8b7 d c2b1b8
+b8b7 b8b7 u 03 01
+b8b7 b8b7 s  jnz initial0
+b8ba b8ba s 	;set the reserved space for the directory
+b8ba b8ba d 2acabf
+b8ba b8ba u 03 01
+b8ba b8ba s 	lhld dirblk!
+b8bd b8bd d eb
+b8bd b8bd u 01 01
+b8bd b8bd s  xchg
+b8be b8be d 2abfbf
+b8be b8be u 03 01
+b8be b8be s 	lhld alloca ;HL=.alloc()
+b8c1 b8c1 d 73
+b8c1 b8c1 u 01 01
+b8c1 b8c1 s 	mov m,e!
+b8c2 b8c2 d 23
+b8c2 b8c2 u 01 01
+b8c2 b8c2 s  inx h!
+b8c3 b8c3 d 72
+b8c3 b8c3 u 01 01
+b8c3 b8c3 s  mov m,d ;sets reserved directory blks
+b8c4 b8c4 s 	;allocation vector initialized, home disk
+b8c4 b8c4 d cda1b5
+b8c4 b8c4 u 03 01
+b8c4 b8c4 s 	call home
+b8c7 b8c7 s         ;cdrmax = 3 (scans at least one directory record)
+b8c7 b8c7 d 2ab3bf
+b8c7 b8c7 u 03 01
+b8c7 b8c7 s 	lhld cdrmaxa!
+b8ca b8ca d 3603
+b8ca b8ca u 02 01
+b8ca b8ca s  mvi m,3!
+b8cc b8cc d 23
+b8cc b8cc u 01 01
+b8cc b8cc s  inx h!
+b8cd b8cd d 3600
+b8cd b8cd u 02 01
+b8cd b8cd s  mvi m,0
+b8cf b8cf s 	;cdrmax = 0000
+b8cf b8cf d cdfeb7
+b8cf b8cf u 03 01
+b8cf b8cf s 	call set$end$dir ;dcnt = enddir
+b8d2 b8d2 s 	;read directory entries and check for allocated storage
+b8d2 b8d2 s 	initial2:
+b8d2 b8d2 d 0eff
+b8d2 b8d2 u 02 01
+b8d2 b8d2 s 		mvi c,true!
+b8d4 b8d4 d cd05b8
+b8d4 b8d4 u 03 01
+b8d4 b8d4 s  call read$dir
+b8d7 b8d7 d cdf5b7
+b8d7 b8d7 u 03 01
+b8d7 b8d7 s 		call end$of$dir!
+b8da b8da d c8
+b8da b8da u 01 01
+b8da b8da s  rz ;return if end of directory
+b8db b8db s 		;not end of directory, valid entry?
+b8db b8db d cd5eb7
+b8db b8db u 03 01
+b8db b8db s 		call getdptra ;HL = buffa + dptr
+b8de b8de d 3ee5
+b8de b8de u 02 01
+b8de b8de s 		mvi a,empty!
+b8e0 b8e0 d be
+b8e0 b8e0 u 01 01
+b8e0 b8e0 s  cmp m
+b8e1 b8e1 d cad2b8
+b8e1 b8e1 u 03 01
+b8e1 b8e1 s 		jz initial2 ;go get another item
+b8e4 b8e4 s 		;not empty, user code the same?
+b8e4 b8e4 d 3a41b5
+b8e4 b8e4 u 03 01
+b8e4 b8e4 s 		lda usrcode
+b8e7 b8e7 d be
+b8e7 b8e7 u 01 01
+b8e7 b8e7 s 		cmp m!
+b8e8 b8e8 d c2f6b8
+b8e8 b8e8 u 03 01
+b8e8 b8e8 s  jnz pdollar
+b8eb b8eb s 		;same user code, check for '$' submit
+b8eb b8eb d 23
+b8eb b8eb u 01 01
+b8eb b8eb s 		inx h!
+b8ec b8ec d 7e
+b8ec b8ec u 01 01
+b8ec b8ec s  mov a,m ;first character
+b8ed b8ed d d624
+b8ed b8ed u 02 01
+b8ed b8ed s 		sui '$' ;dollar file?
+b8ef b8ef d c2f6b8
+b8ef b8ef u 03 01
+b8ef b8ef s 		jnz pdollar
+b8f2 b8f2 s 		;dollar file found, mark in lret
+b8f2 b8f2 d 3d
+b8f2 b8f2 u 01 01
+b8f2 b8f2 s 		dcr a!
+b8f3 b8f3 d 3245b5
+b8f3 b8f3 u 03 01
+b8f3 b8f3 s  sta lret ;lret = 255
+b8f6 b8f6 s 	pdollar:
+b8f6 b8f6 s 		;now scan the disk map for allocated blocks
+b8f6 b8f6 d 0e01
+b8f6 b8f6 u 02 01
+b8f6 b8f6 s 		mvi c,1 ;set to allocated
+b8f8 b8f8 d cd6bb8
+b8f8 b8f8 u 03 01
+b8f8 b8f8 s 		call scandm
+b8fb b8fb d cd8cb7
+b8fb b8fb u 03 01
+b8fb b8fb s 		call setcdr ;set cdrmax to dcnt
+b8fe b8fe d c3d2b8
+b8fe b8fe u 03 01
+b8fe b8fe s 		jmp initial2 ;for another entry
+b901 b901 s ;
+b901 b901 s copy$dirloc:
+b901 b901 s 	;copy directory location to lret following
+b901 b901 s 	;delete, rename, ... ops
+b901 b901 d 3ad4bf
+b901 b901 u 03 01
+b901 b901 s 	lda dirloc!
+b904 b904 d c301b5
+b904 b904 u 03 01
+b904 b904 s  jmp sta$ret				;
+b907 b907 s ;	ret						;
+b907 b907 s ;
+b907 b907 s compext:
+b907 b907 s 	;compare extent# in A with that in C, return nonzero
+b907 b907 s 	;if they do not match
+b907 b907 d c5
+b907 b907 u 01 01
+b907 b907 s 	push b ;save C's original value
+b908 b908 d f5
+b908 b908 u 01 01
+b908 b908 s 	push psw!
+b909 b909 d 3ac5bf
+b909 b909 u 03 01
+b909 b909 s  lda extmsk!
+b90c b90c d 2f
+b90c b90c u 01 01
+b90c b90c s  cma!
+b90d b90d d 47
+b90d b90d u 01 01
+b90d b90d s  mov b,a
+b90e b90e s 	;B has negated form of extent mask
+b90e b90e d 79
+b90e b90e u 01 01
+b90e b90e s 	mov a,c!
+b90f b90f d a0
+b90f b90f u 01 01
+b90f b90f s  ana b!
+b910 b910 d 4f
+b910 b910 u 01 01
+b910 b910 s  mov c,a ;low bits removed from C
+b911 b911 d f1
+b911 b911 u 01 01
+b911 b911 s 	pop psw!
+b912 b912 d a0
+b912 b912 u 01 01
+b912 b912 s  ana b ;low bits removed from A
+b913 b913 d 91
+b913 b913 u 01 01
+b913 b913 s 	sub c!
+b914 b914 d e61f
+b914 b914 u 02 01
+b914 b914 s  ani maxext ;set flags
+b916 b916 d c1
+b916 b916 u 01 01
+b916 b916 s 	pop b ;restore original values
+b917 b917 d c9
+b917 b917 u 01 01
+b917 b917 s 	ret
+b918 b918 s ;
+b918 b918 s search:
+b918 b918 s 	;search for directory element of length C at info
+b918 b918 d 3eff
+b918 b918 u 02 01
+b918 b918 s 	mvi a,0ffh!
+b91a b91a d 32d4bf
+b91a b91a u 03 01
+b91a b91a s  sta dirloc ;changed if actually found
+b91d b91d d 21d8bf
+b91d b91d u 03 01
+b91d b91d s 	lxi h,searchl!
+b920 b920 d 71
+b920 b920 u 01 01
+b920 b920 s  mov m,c ;searchl = C
+b921 b921 d 2a43b5
+b921 b921 u 03 01
+b921 b921 s 	lhld info!
+b924 b924 d 22d9bf
+b924 b924 u 03 01
+b924 b924 s  shld searcha ;searcha = info
+b927 b927 d cdfeb7
+b927 b927 u 03 01
+b927 b927 s 	call set$end$dir ;dcnt = enddir
+b92a b92a d cda1b5
+b92a b92a u 03 01
+b92a b92a s 	call home ;to start at the beginning
+b92d b92d s 	;(drop through to searchn)			;
+b92d b92d s ;
+b92d b92d s searchn:
+b92d b92d s 	;search for the next directory element, assuming
+b92d b92d s 	;a previous call on search which sets searcha and
+b92d b92d s 	;searchl
+b92d b92d d 0e00
+b92d b92d u 02 01
+b92d b92d s 	mvi c,false!
+b92f b92f d cd05b8
+b92f b92f u 03 01
+b92f b92f s  call read$dir ;read next dir element
+b932 b932 d cdf5b7
+b932 b932 u 03 01
+b932 b932 s 	call end$of$dir!
+b935 b935 d ca94b9
+b935 b935 u 03 01
+b935 b935 s  jz search$fin ;skip to end if so
+b938 b938 s 		;not end of directory, scan for match
+b938 b938 d 2ad9bf
+b938 b938 u 03 01
+b938 b938 s 		lhld searcha!
+b93b b93b d eb
+b93b b93b u 01 01
+b93b b93b s  xchg ;DE=beginning of user fcb
+b93c b93c d 1a
+b93c b93c u 01 01
+b93c b93c s 		ldax d ;first character
+b93d b93d d fee5
+b93d b93d u 02 01
+b93d b93d s 		cpi empty ;keep scanning if empty
+b93f b93f d ca4ab9
+b93f b93f u 03 01
+b93f b93f s 		jz searchnext
+b942 b942 s 		;not empty, may be end of logical directory
+b942 b942 d d5
+b942 b942 u 01 01
+b942 b942 s 		push d ;save search address
+b943 b943 d cd7fb7
+b943 b943 u 03 01
+b943 b943 s 		call compcdr ;past logical end?
+b946 b946 d d1
+b946 b946 u 01 01
+b946 b946 s 		pop d ;recall address
+b947 b947 d d294b9
+b947 b947 u 03 01
+b947 b947 s 		jnc search$fin ;artificial stop
+b94a b94a s 	searchnext:
+b94a b94a d cd5eb7
+b94a b94a u 03 01
+b94a b94a s 		call getdptra ;HL = buffa+dptr
+b94d b94d d 3ad8bf
+b94d b94d u 03 01
+b94d b94d s 		lda searchl!
+b950 b950 d 4f
+b950 b950 u 01 01
+b950 b950 s  mov c,a ;length of search to c
+b951 b951 d 0600
+b951 b951 u 02 01
+b951 b951 s 		mvi b,0 ;b counts up, c counts down
+b953 b953 s 		searchloop:
+b953 b953 d 79
+b953 b953 u 01 01
+b953 b953 s 			mov a,c!
+b954 b954 d b7
+b954 b954 u 01 01
+b954 b954 s  ora a!
+b955 b955 d ca83b9
+b955 b955 u 03 01
+b955 b955 s  jz endsearch
+b958 b958 d 1a
+b958 b958 u 01 01
+b958 b958 s 			ldax d!
+b959 b959 d fe3f
+b959 b959 u 02 01
+b959 b959 s  cpi '?'!
+b95b b95b d ca7cb9
+b95b b95b u 03 01
+b95b b95b s  jz searchok ;? matches all
+b95e b95e s 			;scan next character if not ubytes
+b95e b95e d 78
+b95e b95e u 01 01
+b95e b95e s 			mov a,b!
+b95f b95f d fe0d
+b95f b95f u 02 01
+b95f b95f s  cpi ubytes!
+b961 b961 d ca7cb9
+b961 b961 u 03 01
+b961 b961 s  jz searchok
+b964 b964 s 			;not the ubytes field, extent field?
+b964 b964 d fe0c
+b964 b964 u 02 01
+b964 b964 s 			cpi extnum ;may be extent field
+b966 b966 d 1a
+b966 b966 u 01 01
+b966 b966 s 			ldax d ;fcb character
+b967 b967 d ca73b9
+b967 b967 u 03 01
+b967 b967 s 			jz searchext ;skip to search extent
+b96a b96a d 96
+b96a b96a u 01 01
+b96a b96a s 			sub m!
+b96b b96b d e67f
+b96b b96b u 02 01
+b96b b96b s  ani 7fh ;mask-out flags/extent modulus
+b96d b96d d c22db9
+b96d b96d u 03 01
+b96d b96d s 			jnz searchn ;skip if not matched
+b970 b970 d c37cb9
+b970 b970 u 03 01
+b970 b970 s 			jmp searchok ;matched character
+b973 b973 s 		searchext:
+b973 b973 s 			;A has fcb character
+b973 b973 s 			;attempt an extent # match
+b973 b973 d c5
+b973 b973 u 01 01
+b973 b973 s 			push b ;save counters
+b974 b974 d 4e
+b974 b974 u 01 01
+b974 b974 s 			mov c,m ;directory character to c
+b975 b975 d cd07b9
+b975 b975 u 03 01
+b975 b975 s 			call compext ;compare user/dir char
+b978 b978 d c1
+b978 b978 u 01 01
+b978 b978 s 			pop b ;recall counters
+b979 b979 d c22db9
+b979 b979 u 03 01
+b979 b979 s 			jnz searchn ;skip if no match
+b97c b97c s 		searchok:
+b97c b97c s 			;current character matches
+b97c b97c d 13
+b97c b97c u 01 01
+b97c b97c s 			inx d!
+b97d b97d d 23
+b97d b97d u 01 01
+b97d b97d s  inx h!
+b97e b97e d 04
+b97e b97e u 01 01
+b97e b97e s  inr b!
+b97f b97f d 0d
+b97f b97f u 01 01
+b97f b97f s  dcr c
+b980 b980 d c353b9
+b980 b980 u 03 01
+b980 b980 s 			jmp searchloop
+b983 b983 s 		endsearch:
+b983 b983 s 			;entire name matches, return dir position
+b983 b983 d 3aeabf
+b983 b983 u 03 01
+b983 b983 s 			lda dcnt!
+b986 b986 d e603
+b986 b986 u 02 01
+b986 b986 s  ani dskmsk!
+b988 b988 d 3245b5
+b988 b988 u 03 01
+b988 b988 s  sta lret
+b98b b98b s 			;lret = low(dcnt) and 11b
+b98b b98b d 21d4bf
+b98b b98b u 03 01
+b98b b98b s 			lxi h,dirloc!
+b98e b98e d 7e
+b98e b98e u 01 01
+b98e b98e s  mov a,m!
+b98f b98f d 17
+b98f b98f u 01 01
+b98f b98f s  ral!
+b990 b990 d d0
+b990 b990 u 01 01
+b990 b990 s  rnc ;dirloc=0ffh?
+b991 b991 s 			;yes, change it to 0 to mark as found
+b991 b991 d af
+b991 b991 u 01 01
+b991 b991 s 			xra a!
+b992 b992 d 77
+b992 b992 u 01 01
+b992 b992 s  mov m,a ;dirloc=0
+b993 b993 d c9
+b993 b993 u 01 01
+b993 b993 s 			ret
+b994 b994 s 		search$fin:
+b994 b994 s 			;end of directory, or empty name
+b994 b994 d cdfeb7
+b994 b994 u 03 01
+b994 b994 s 			call set$end$dir ;may be artifical end
+b997 b997 d 3eff
+b997 b997 u 02 01
+b997 b997 s 			mvi a,255!
+b999 b999 d c301b5
+b999 b999 u 03 01
+b999 b999 s  jmp sta$ret		;
+b99c b99c s ;
+b99c b99c s ;
+b99c b99c s delete:
+b99c b99c s 	;delete the currently addressed file
+b99c b99c d cd54b7
+b99c b99c u 03 01
+b99c b99c s 	call check$write ;write protected?
+b99f b99f d 0e0c
+b99f b99f u 02 01
+b99f b99f s 	mvi c,extnum!
+b9a1 b9a1 d cd18b9
+b9a1 b9a1 u 03 01
+b9a1 b9a1 s  call search ;search through file type
+b9a4 b9a4 s 	delete0:
+b9a4 b9a4 s 		;loop while directory matches
+b9a4 b9a4 d cdf5b7
+b9a4 b9a4 u 03 01
+b9a4 b9a4 s 		call end$of$dir!
+b9a7 b9a7 d c8
+b9a7 b9a7 u 01 01
+b9a7 b9a7 s  rz ;stop if end
+b9a8 b9a8 s 		;set each non zero disk map entry to 0
+b9a8 b9a8 s 		;in the allocation vector
+b9a8 b9a8 s 		;may be r/o file
+b9a8 b9a8 d cd44b7
+b9a8 b9a8 u 03 01
+b9a8 b9a8 s 		call check$rodir ;ro disk error if found
+b9ab b9ab d cd5eb7
+b9ab b9ab u 03 01
+b9ab b9ab s 		call getdptra ;HL=.buff(dptr)
+b9ae b9ae d 36e5
+b9ae b9ae u 02 01
+b9ae b9ae s 		mvi m,empty
+b9b0 b9b0 d 0e00
+b9b0 b9b0 u 02 01
+b9b0 b9b0 s 		mvi c,0!
+b9b2 b9b2 d cd6bb8
+b9b2 b9b2 u 03 01
+b9b2 b9b2 s  call scandm ;alloc elts set to 0
+b9b5 b9b5 d cdc6b7
+b9b5 b9b5 u 03 01
+b9b5 b9b5 s 		call wrdir ;write the directory
+b9b8 b9b8 d cd2db9
+b9b8 b9b8 u 03 01
+b9b8 b9b8 s 		call searchn ;to next element
+b9bb b9bb d c3a4b9
+b9bb b9bb u 03 01
+b9bb b9bb s 		jmp delete0 ;for another record
+b9be b9be s ;
+b9be b9be s get$block:
+b9be b9be s 	;given allocation vector position BC, find the zero bit
+b9be b9be s 	;closest to this position by searching left and right.
+b9be b9be s 	;if found, set the bit to one and return the bit position
+b9be b9be s 	;in hl.  if not found (i.e., we pass 0 on the left, or
+b9be b9be s 	;maxall on the right), return 0000 in hl
+b9be b9be d 50
+b9be b9be u 01 01
+b9be b9be s 	mov d,b!
+b9bf b9bf d 59
+b9bf b9bf u 01 01
+b9bf b9bf s  mov e,c ;copy of starting position to de
+b9c0 b9c0 s 	lefttst:
+b9c0 b9c0 d 79
+b9c0 b9c0 u 01 01
+b9c0 b9c0 s 		mov a,c!
+b9c1 b9c1 d b0
+b9c1 b9c1 u 01 01
+b9c1 b9c1 s  ora b!
+b9c2 b9c2 d cad1b9
+b9c2 b9c2 u 03 01
+b9c2 b9c2 s  jz righttst ;skip if left=0000
+b9c5 b9c5 s 		;left not at position zero, bit zero?
+b9c5 b9c5 d 0b
+b9c5 b9c5 u 01 01
+b9c5 b9c5 s 		dcx b!
+b9c6 b9c6 d d5
+b9c6 b9c6 u 01 01
+b9c6 b9c6 s  push d!
+b9c7 b9c7 d c5
+b9c7 b9c7 u 01 01
+b9c7 b9c7 s  push b ;left,right pushed
+b9c8 b9c8 d cd35b8
+b9c8 b9c8 u 03 01
+b9c8 b9c8 s 		call getallocbit
+b9cb b9cb d 1f
+b9cb b9cb u 01 01
+b9cb b9cb s 		rar!
+b9cc b9cc d d2ecb9
+b9cc b9cc u 03 01
+b9cc b9cc s  jnc retblock ;return block number if zero
+b9cf b9cf s 		;bit is one, so try the right
+b9cf b9cf d c1
+b9cf b9cf u 01 01
+b9cf b9cf s 		pop b!
+b9d0 b9d0 d d1
+b9d0 b9d0 u 01 01
+b9d0 b9d0 s  pop d ;left, right restored
+b9d1 b9d1 s 	righttst:
+b9d1 b9d1 d 2ac6bf
+b9d1 b9d1 u 03 01
+b9d1 b9d1 s 		lhld maxall ;value of maximum allocation#
+b9d4 b9d4 d 7b
+b9d4 b9d4 u 01 01
+b9d4 b9d4 s 		mov a,e!
+b9d5 b9d5 d 95
+b9d5 b9d5 u 01 01
+b9d5 b9d5 s  sub l!
+b9d6 b9d6 d 7a
+b9d6 b9d6 u 01 01
+b9d6 b9d6 s  mov a,d!
+b9d7 b9d7 d 9c
+b9d7 b9d7 u 01 01
+b9d7 b9d7 s  sbb h ;right=maxall?
+b9d8 b9d8 d d2f4b9
+b9d8 b9d8 u 03 01
+b9d8 b9d8 s 		jnc retblock0 ;return block 0000 if so
+b9db b9db d 13
+b9db b9db u 01 01
+b9db b9db s 		inx d!
+b9dc b9dc d c5
+b9dc b9dc u 01 01
+b9dc b9dc s  push b!
+b9dd b9dd d d5
+b9dd b9dd u 01 01
+b9dd b9dd s  push d ;left, right pushed
+b9de b9de d 42
+b9de b9de u 01 01
+b9de b9de s 		mov b,d!
+b9df b9df d 4b
+b9df b9df u 01 01
+b9df b9df s  mov c,e ;ready right for call
+b9e0 b9e0 d cd35b8
+b9e0 b9e0 u 03 01
+b9e0 b9e0 s 		call getallocbit
+b9e3 b9e3 d 1f
+b9e3 b9e3 u 01 01
+b9e3 b9e3 s 		rar!
+b9e4 b9e4 d d2ecb9
+b9e4 b9e4 u 03 01
+b9e4 b9e4 s  jnc retblock ;return block number if zero
+b9e7 b9e7 d d1
+b9e7 b9e7 u 01 01
+b9e7 b9e7 s 		pop d!
+b9e8 b9e8 d c1
+b9e8 b9e8 u 01 01
+b9e8 b9e8 s  pop b ;restore left and right pointers
+b9e9 b9e9 d c3c0b9
+b9e9 b9e9 u 03 01
+b9e9 b9e9 s 		jmp lefttst ;for another attempt
+b9ec b9ec s 	retblock:
+b9ec b9ec d 17
+b9ec b9ec u 01 01
+b9ec b9ec s 		ral!
+b9ed b9ed d 3c
+b9ed b9ed u 01 01
+b9ed b9ed s  inr a ;bit back into position and set to 1
+b9ee b9ee s 		;d contains the number of shifts required to reposition
+b9ee b9ee d cd64b8
+b9ee b9ee u 03 01
+b9ee b9ee s 		call rotr ;move bit back to position and store
+b9f1 b9f1 d e1
+b9f1 b9f1 u 01 01
+b9f1 b9f1 s 		pop h!
+b9f2 b9f2 d d1
+b9f2 b9f2 u 01 01
+b9f2 b9f2 s  pop d ;HL returned value, DE discarded
+b9f3 b9f3 d c9
+b9f3 b9f3 u 01 01
+b9f3 b9f3 s 		ret
+b9f4 b9f4 s 	retblock0:
+b9f4 b9f4 s 		;cannot find an available bit, return 0000
+b9f4 b9f4 d 79
+b9f4 b9f4 u 01 01
+b9f4 b9f4 s 		mov a,c				;
+b9f5 b9f5 d b0
+b9f5 b9f5 u 01 01
+b9f5 b9f5 s 		ora b!
+b9f6 b9f6 d c2c0b9
+b9f6 b9f6 u 03 01
+b9f6 b9f6 s  jnz lefttst	;also at beginning    
+b9f9 b9f9 d 210000
+b9f9 b9f9 u 03 01
+b9f9 b9f9 s 		lxi h,0000h!
+b9fc b9fc d c9
+b9fc b9fc u 01 01
+b9fc b9fc s  ret
+b9fd b9fd s ;
+b9fd b9fd s copy$fcb:
+b9fd b9fd s 	;copy the entire file control block
+b9fd b9fd d 0e00
+b9fd b9fd u 02 01
+b9fd b9fd s 	mvi c,0!
+b9ff b9ff d 1e20
+b9ff b9ff u 02 01
+b9ff b9ff s  mvi e,fcblen ;start at 0, to fcblen-1
+ba01 ba01 s 	;	jmp copy$dir			;
+ba01 ba01 s ;
+ba01 ba01 s copy$dir:
+ba01 ba01 s 	;copy fcb information starting at C for E bytes
+ba01 ba01 s 	;into the currently addressed directory entry
+ba01 ba01 d d5
+ba01 ba01 u 01 01
+ba01 ba01 s 	push d ;save length for later
+ba02 ba02 d 0600
+ba02 ba02 u 02 01
+ba02 ba02 s 	mvi b,0 ;double index to BC
+ba04 ba04 d 2a43b5
+ba04 ba04 u 03 01
+ba04 ba04 s 	lhld info ;HL = source for data
+ba07 ba07 d 09
+ba07 ba07 u 01 01
+ba07 ba07 s 	dad b!
+ba08 ba08 d eb
+ba08 ba08 u 01 01
+ba08 ba08 s  xchg ;DE=.fcb(C), source for copy
+ba09 ba09 d cd5eb7
+ba09 ba09 u 03 01
+ba09 ba09 s 	call getdptra ;HL=.buff(dptr), destination
+ba0c ba0c d c1
+ba0c ba0c u 01 01
+ba0c ba0c s 	pop b ;DE=source, HL=dest, C=length
+ba0d ba0d d cd4fb5
+ba0d ba0d u 03 01
+ba0d ba0d s 	call move ;data moved
+ba10 ba10 s seek$copy:
+ba10 ba10 s 	;enter from close to seek and copy current element
+ba10 ba10 d cdc3b5
+ba10 ba10 u 03 01
+ba10 ba10 s 	call seek$dir ;to the directory element
+ba13 ba13 d c3c6b7
+ba13 ba13 u 03 01
+ba13 ba13 s 	jmp wrdir ;write the directory element
+ba16 ba16 s 	;ret
+ba16 ba16 s ;
+ba16 ba16 s ;
+ba16 ba16 s rename:
+ba16 ba16 s 	;rename the file described by the first half of
+ba16 ba16 s 	;the currently addressed file control block. the
+ba16 ba16 s 	;new name is contained in the last half of the
+ba16 ba16 s 	;currently addressed file conrol block.  the file
+ba16 ba16 s 	;name and type are changed, but the reel number
+ba16 ba16 s 	;is ignored.  the user number is identical
+ba16 ba16 d cd54b7
+ba16 ba16 u 03 01
+ba16 ba16 s 	call check$write ;may be write protected
+ba19 ba19 s 	;search up to the extent field
+ba19 ba19 d 0e0c
+ba19 ba19 u 02 01
+ba19 ba19 s 	mvi c,extnum!
+ba1b ba1b d cd18b9
+ba1b ba1b u 03 01
+ba1b ba1b s  call search
+ba1e ba1e s 	;copy position 0
+ba1e ba1e d 2a43b5
+ba1e ba1e u 03 01
+ba1e ba1e s 	lhld info!
+ba21 ba21 d 7e
+ba21 ba21 u 01 01
+ba21 ba21 s  mov a,m ;HL=.fcb(0), A=fcb(0)
+ba22 ba22 d 111000
+ba22 ba22 u 03 01
+ba22 ba22 s 	lxi d,dskmap!
+ba25 ba25 d 19
+ba25 ba25 u 01 01
+ba25 ba25 s  dad d;HL=.fcb(dskmap)
+ba26 ba26 d 77
+ba26 ba26 u 01 01
+ba26 ba26 s 	mov m,a ;fcb(dskmap)=fcb(0)
+ba27 ba27 s 	;assume the same disk drive for new named file
+ba27 ba27 s 	rename0:
+ba27 ba27 d cdf5b7
+ba27 ba27 u 03 01
+ba27 ba27 s 		call end$of$dir!
+ba2a ba2a d c8
+ba2a ba2a u 01 01
+ba2a ba2a s  rz ;stop at end of dir
+ba2b ba2b s 		;not end of directory, rename next element
+ba2b ba2b d cd44b7
+ba2b ba2b u 03 01
+ba2b ba2b s 		call check$rodir ;may be read-only file
+ba2e ba2e d 0e10
+ba2e ba2e u 02 01
+ba2e ba2e s 		mvi c,dskmap!
+ba30 ba30 d 1e0c
+ba30 ba30 u 02 01
+ba30 ba30 s  mvi e,extnum!
+ba32 ba32 d cd01ba
+ba32 ba32 u 03 01
+ba32 ba32 s  call copy$dir
+ba35 ba35 s 		;element renamed, move to next
+ba35 ba35 d cd2db9
+ba35 ba35 u 03 01
+ba35 ba35 s 		call searchn
+ba38 ba38 d c327ba
+ba38 ba38 u 03 01
+ba38 ba38 s 		jmp rename0
+ba3b ba3b s ;
+ba3b ba3b s indicators:
+ba3b ba3b s 	;set file indicators for current fcb
+ba3b ba3b d 0e0c
+ba3b ba3b u 02 01
+ba3b ba3b s 	mvi c,extnum!
+ba3d ba3d d cd18b9
+ba3d ba3d u 03 01
+ba3d ba3d s  call search ;through file type
+ba40 ba40 s 	indic0:
+ba40 ba40 d cdf5b7
+ba40 ba40 u 03 01
+ba40 ba40 s 		call end$of$dir!
+ba43 ba43 d c8
+ba43 ba43 u 01 01
+ba43 ba43 s  rz ;stop at end of dir
+ba44 ba44 s 		;not end of directory, continue to change
+ba44 ba44 d 0e00
+ba44 ba44 u 02 01
+ba44 ba44 s 		mvi c,0!
+ba46 ba46 d 1e0c
+ba46 ba46 u 02 01
+ba46 ba46 s  mvi e,extnum ;copy name
+ba48 ba48 d cd01ba
+ba48 ba48 u 03 01
+ba48 ba48 s 		call copy$dir
+ba4b ba4b d cd2db9
+ba4b ba4b u 03 01
+ba4b ba4b s 		call searchn
+ba4e ba4e d c340ba
+ba4e ba4e u 03 01
+ba4e ba4e s 		jmp indic0
+ba51 ba51 s ;
+ba51 ba51 s open:
+ba51 ba51 s 	;search for the directory entry, copy to fcb
+ba51 ba51 d 0e0f
+ba51 ba51 u 02 01
+ba51 ba51 s 	mvi c,namlen!
+ba53 ba53 d cd18b9
+ba53 ba53 u 03 01
+ba53 ba53 s  call search
+ba56 ba56 d cdf5b7
+ba56 ba56 u 03 01
+ba56 ba56 s 	call end$of$dir!
+ba59 ba59 d c8
+ba59 ba59 u 01 01
+ba59 ba59 s  rz ;return with lret=255 if end
+ba5a ba5a s 	;not end of directory, copy fcb information
+ba5a ba5a s open$copy:
+ba5a ba5a s 	;(referenced below to copy fcb info)
+ba5a ba5a d cda6b6
+ba5a ba5a u 03 01
+ba5a ba5a s 	call getexta!
+ba5d ba5d d 7e
+ba5d ba5d u 01 01
+ba5d ba5d s  mov a,m!
+ba5e ba5e d f5
+ba5e ba5e u 01 01
+ba5e ba5e s  push psw!
+ba5f ba5f d e5
+ba5f ba5f u 01 01
+ba5f ba5f s  push h ;save extent#
+ba60 ba60 d cd5eb7
+ba60 ba60 u 03 01
+ba60 ba60 s 	call getdptra!
+ba63 ba63 d eb
+ba63 ba63 u 01 01
+ba63 ba63 s  xchg ;DE = .buff(dptr)
+ba64 ba64 d 2a43b5
+ba64 ba64 u 03 01
+ba64 ba64 s 	lhld info ;HL=.fcb(0)
+ba67 ba67 d 0e20
+ba67 ba67 u 02 01
+ba67 ba67 s 	mvi c,nxtrec ;length of move operation
+ba69 ba69 d d5
+ba69 ba69 u 01 01
+ba69 ba69 s 	push d ;save .buff(dptr)
+ba6a ba6a d cd4fb5
+ba6a ba6a u 03 01
+ba6a ba6a s 	call move ;from .buff(dptr) to .fcb(0)
+ba6d ba6d s 	;note that entire fcb is copied, including indicators
+ba6d ba6d d cd78b7
+ba6d ba6d u 03 01
+ba6d ba6d s 	call setfwf ;sets file write flag
+ba70 ba70 d d1
+ba70 ba70 u 01 01
+ba70 ba70 s 	pop d!
+ba71 ba71 d 210c00
+ba71 ba71 u 03 01
+ba71 ba71 s  lxi h,extnum!
+ba74 ba74 d 19
+ba74 ba74 u 01 01
+ba74 ba74 s  dad d ;HL=.buff(dptr+extnum)
+ba75 ba75 d 4e
+ba75 ba75 u 01 01
+ba75 ba75 s 	mov c,m ;C = directory extent number
+ba76 ba76 d 210f00
+ba76 ba76 u 03 01
+ba76 ba76 s 	lxi h,reccnt!
+ba79 ba79 d 19
+ba79 ba79 u 01 01
+ba79 ba79 s  dad d ;HL=.buff(dptr+reccnt)
+ba7a ba7a d 46
+ba7a ba7a u 01 01
+ba7a ba7a s 	mov b,m ;B holds directory record count
+ba7b ba7b d e1
+ba7b ba7b u 01 01
+ba7b ba7b s 	pop h!
+ba7c ba7c d f1
+ba7c ba7c u 01 01
+ba7c ba7c s  pop psw!
+ba7d ba7d d 77
+ba7d ba7d u 01 01
+ba7d ba7d s  mov m,a ;restore extent number
+ba7e ba7e s 	;HL = .user extent#, B = dir rec cnt, C = dir extent#
+ba7e ba7e s 	;if user ext < dir ext then user := 128 records
+ba7e ba7e s 	;if user ext = dir ext then user := dir records
+ba7e ba7e s 	;if user ext > dir ext then user := 0 records
+ba7e ba7e d 79
+ba7e ba7e u 01 01
+ba7e ba7e s 		mov a,c!
+ba7f ba7f d be
+ba7f ba7f u 01 01
+ba7f ba7f s  cmp m!
+ba80 ba80 d 78
+ba80 ba80 u 01 01
+ba80 ba80 s  mov a,b ;ready dir reccnt
+ba81 ba81 d ca8bba
+ba81 ba81 u 03 01
+ba81 ba81 s 		jz open$rcnt ;if same, user gets dir reccnt
+ba84 ba84 d 3e00
+ba84 ba84 u 02 01
+ba84 ba84 s 		mvi a,0!
+ba86 ba86 d da8bba
+ba86 ba86 u 03 01
+ba86 ba86 s  jc open$rcnt ;user is larger
+ba89 ba89 d 3e80
+ba89 ba89 u 02 01
+ba89 ba89 s 		mvi a,128 ;directory is larger
+ba8b ba8b s 	open$rcnt: ;A has record count to fill
+ba8b ba8b d 2a43b5
+ba8b ba8b u 03 01
+ba8b ba8b s 	lhld info!
+ba8e ba8e d 110f00
+ba8e ba8e u 03 01
+ba8e ba8e s  lxi d,reccnt!
+ba91 ba91 d 19
+ba91 ba91 u 01 01
+ba91 ba91 s  dad d!
+ba92 ba92 d 77
+ba92 ba92 u 01 01
+ba92 ba92 s  mov m,a
+ba93 ba93 d c9
+ba93 ba93 u 01 01
+ba93 ba93 s 	ret
+ba94 ba94 s ;
+ba94 ba94 s mergezero:
+ba94 ba94 s 	;HL = .fcb1(i), DE = .fcb2(i),
+ba94 ba94 s 	;if fcb1(i) = 0 then fcb1(i) := fcb2(i)
+ba94 ba94 d 7e
+ba94 ba94 u 01 01
+ba94 ba94 s 	mov a,m!
+ba95 ba95 d 23
+ba95 ba95 u 01 01
+ba95 ba95 s  inx h!
+ba96 ba96 d b6
+ba96 ba96 u 01 01
+ba96 ba96 s  ora m!
+ba97 ba97 d 2b
+ba97 ba97 u 01 01
+ba97 ba97 s  dcx h!
+ba98 ba98 d c0
+ba98 ba98 u 01 01
+ba98 ba98 s  rnz ;return if = 0000
+ba99 ba99 d 1a
+ba99 ba99 u 01 01
+ba99 ba99 s 	ldax d!
+ba9a ba9a d 77
+ba9a ba9a u 01 01
+ba9a ba9a s  mov m,a!
+ba9b ba9b d 13
+ba9b ba9b u 01 01
+ba9b ba9b s  inx d!
+ba9c ba9c d 23
+ba9c ba9c u 01 01
+ba9c ba9c s  inx h ;low byte copied
+ba9d ba9d d 1a
+ba9d ba9d u 01 01
+ba9d ba9d s 	ldax d!
+ba9e ba9e d 77
+ba9e ba9e u 01 01
+ba9e ba9e s  mov m,a!
+ba9f ba9f d 1b
+ba9f ba9f u 01 01
+ba9f ba9f s  dcx d!
+baa0 baa0 d 2b
+baa0 baa0 u 01 01
+baa0 baa0 s  dcx h ;back to input form
+baa1 baa1 d c9
+baa1 baa1 u 01 01
+baa1 baa1 s 	ret
+baa2 baa2 s ;
+baa2 baa2 s close:
+baa2 baa2 s 	;locate the directory element and re-write it
+baa2 baa2 d af
+baa2 baa2 u 01 01
+baa2 baa2 s 	xra a!
+baa3 baa3 d 3245b5
+baa3 baa3 u 03 01
+baa3 baa3 s  sta lret!
+baa6 baa6 d 32eabf
+baa6 baa6 u 03 01
+baa6 baa6 s  sta dcnt!
+baa9 baa9 d 32ebbf
+baa9 baa9 u 03 01
+baa9 baa9 s  sta dcnt+1	;
+baac baac d cd1eb7
+baac baac u 03 01
+baac baac s 	call nowrite!
+baaf baaf d c0
+baaf baaf u 01 01
+baaf baaf s  rnz ;skip close if r/o disk
+bab0 bab0 s 	;check file write flag - 0 indicates written
+bab0 bab0 d cd69b7
+bab0 bab0 u 03 01
+bab0 bab0 s 	call getmodnum ;fcb(modnum) in A
+bab3 bab3 d e680
+bab3 bab3 u 02 01
+bab3 bab3 s 	ani fwfmsk!
+bab5 bab5 d c0
+bab5 bab5 u 01 01
+bab5 bab5 s  rnz ;return if bit remains set
+bab6 bab6 d 0e0f
+bab6 bab6 u 02 01
+bab6 bab6 s 	mvi c,namlen!
+bab8 bab8 d cd18b9
+bab8 bab8 u 03 01
+bab8 bab8 s  call search ;locate file
+babb babb d cdf5b7
+babb babb u 03 01
+babb babb s 	call end$of$dir!
+babe babe d c8
+babe babe u 01 01
+babe babe s  rz ;return if not found
+babf babf s 	;merge the disk map at info with that at buff(dptr)
+babf babf d 011000
+babf babf u 03 01
+babf babf s 	lxi b,dskmap!
+bac2 bac2 d cd5eb7
+bac2 bac2 u 03 01
+bac2 bac2 s  call getdptra
+bac5 bac5 d 09
+bac5 bac5 u 01 01
+bac5 bac5 s 	dad b!
+bac6 bac6 d eb
+bac6 bac6 u 01 01
+bac6 bac6 s  xchg ;DE is .buff(dptr+16)
+bac7 bac7 d 2a43b5
+bac7 bac7 u 03 01
+bac7 bac7 s 	lhld info!
+baca baca d 09
+baca baca u 01 01
+baca baca s  dad b ;DE=.buff(dptr+16), HL=.fcb(16)
+bacb bacb d 0e10
+bacb bacb u 02 01
+bacb bacb s 	mvi c,(fcblen-dskmap) ;length of single byte dm
+bacd bacd s 	merge0:
+bacd bacd d 3addbf
+bacd bacd u 03 01
+bacd bacd s 		lda single!
+bad0 bad0 d b7
+bad0 bad0 u 01 01
+bad0 bad0 s  ora a!
+bad1 bad1 d cae8ba
+bad1 bad1 u 03 01
+bad1 bad1 s  jz merged ;skip to double
+bad4 bad4 s 		;this is a single byte map
+bad4 bad4 s 		;if fcb(i) = 0 then fcb(i) = buff(i)
+bad4 bad4 s 		;if buff(i) = 0 then buff(i) = fcb(i)
+bad4 bad4 s 		;if fcb(i) <> buff(i) then error
+bad4 bad4 d 7e
+bad4 bad4 u 01 01
+bad4 bad4 s 		mov a,m!
+bad5 bad5 d b7
+bad5 bad5 u 01 01
+bad5 bad5 s  ora a!
+bad6 bad6 d 1a
+bad6 bad6 u 01 01
+bad6 bad6 s  ldax d!
+bad7 bad7 d c2dbba
+bad7 bad7 u 03 01
+bad7 bad7 s  jnz fcbnzero
+bada bada s 			;fcb(i) = 0
+bada bada d 77
+bada bada u 01 01
+bada bada s 			mov m,a ;fcb(i) = buff(i)
+badb badb s 		fcbnzero:
+badb badb d b7
+badb badb u 01 01
+badb badb s 		ora a!
+badc badc d c2e1ba
+badc badc u 03 01
+badc badc s  jnz buffnzero
+badf badf s 			;buff(i) = 0
+badf badf d 7e
+badf badf u 01 01
+badf badf s 			mov a,m!
+bae0 bae0 d 12
+bae0 bae0 u 01 01
+bae0 bae0 s  stax d ;buff(i)=fcb(i)
+bae1 bae1 s 		buffnzero:
+bae1 bae1 d be
+bae1 bae1 u 01 01
+bae1 bae1 s 		cmp m!
+bae2 bae2 d c21fbb
+bae2 bae2 u 03 01
+bae2 bae2 s  jnz mergerr ;fcb(i) = buff(i)?
+bae5 bae5 d c3fdba
+bae5 bae5 u 03 01
+bae5 bae5 s 		jmp dmset ;if merge ok
+bae8 bae8 s 	merged:
+bae8 bae8 s 		;this is a double byte merge operation
+bae8 bae8 d cd94ba
+bae8 bae8 u 03 01
+bae8 bae8 s 		call mergezero ;buff = fcb if buff 0000
+baeb baeb d eb
+baeb baeb u 01 01
+baeb baeb s 		xchg!
+baec baec d cd94ba
+baec baec u 03 01
+baec baec s  call mergezero!
+baef baef d eb
+baef baef u 01 01
+baef baef s  xchg ;fcb = buff if fcb 0000
+baf0 baf0 s 		;they should be identical at this point
+baf0 baf0 d 1a
+baf0 baf0 u 01 01
+baf0 baf0 s 		ldax d!
+baf1 baf1 d be
+baf1 baf1 u 01 01
+baf1 baf1 s  cmp m!
+baf2 baf2 d c21fbb
+baf2 baf2 u 03 01
+baf2 baf2 s  jnz mergerr ;low same?
+baf5 baf5 d 13
+baf5 baf5 u 01 01
+baf5 baf5 s 		inx d!
+baf6 baf6 d 23
+baf6 baf6 u 01 01
+baf6 baf6 s  inx h ;to high byte
+baf7 baf7 d 1a
+baf7 baf7 u 01 01
+baf7 baf7 s 		ldax d!
+baf8 baf8 d be
+baf8 baf8 u 01 01
+baf8 baf8 s  cmp m!
+baf9 baf9 d c21fbb
+baf9 baf9 u 03 01
+baf9 baf9 s  jnz mergerr ;high same?
+bafc bafc s 		;merge operation ok for this pair
+bafc bafc d 0d
+bafc bafc u 01 01
+bafc bafc s 		dcr c ;extra count for double byte
+bafd bafd s 	dmset:
+bafd bafd d 13
+bafd bafd u 01 01
+bafd bafd s 		inx d!
+bafe bafe d 23
+bafe bafe u 01 01
+bafe bafe s  inx h ;to next byte position
+baff baff d 0d
+baff baff u 01 01
+baff baff s 		dcr c!
+bb00 bb00 d c2cdba
+bb00 bb00 u 03 01
+bb00 bb00 s  jnz merge0 ;for more
+bb03 bb03 s 		;end of disk map merge, check record count
+bb03 bb03 s 		;DE = .buff(dptr)+32, HL = .fcb(32)
+bb03 bb03 d 01ecff
+bb03 bb03 u 03 01
+bb03 bb03 s 		lxi b,-(fcblen-extnum)!
+bb06 bb06 d 09
+bb06 bb06 u 01 01
+bb06 bb06 s  dad b!
+bb07 bb07 d eb
+bb07 bb07 u 01 01
+bb07 bb07 s  xchg!
+bb08 bb08 d 09
+bb08 bb08 u 01 01
+bb08 bb08 s  dad b
+bb09 bb09 s 		;DE = .fcb(extnum), HL = .buff(dptr+extnum)
+bb09 bb09 d 1a
+bb09 bb09 u 01 01
+bb09 bb09 s 		ldax d ;current user extent number
+bb0a bb0a s 		;if fcb(ext) >= buff(fcb) then
+bb0a bb0a s 		;buff(ext) := fcb(ext), buff(rec) := fcb(rec)
+bb0a bb0a d be
+bb0a bb0a u 01 01
+bb0a bb0a s 		cmp m!
+bb0b bb0b d da17bb
+bb0b bb0b u 03 01
+bb0b bb0b s  jc endmerge
+bb0e bb0e s 		;fcb extent number >= dir extent number
+bb0e bb0e d 77
+bb0e bb0e u 01 01
+bb0e bb0e s 		mov m,a ;buff(ext) = fcb(ext)
+bb0f bb0f s 		;update directory record count field
+bb0f bb0f d 010300
+bb0f bb0f u 03 01
+bb0f bb0f s 		lxi b,(reccnt-extnum)!
+bb12 bb12 d 09
+bb12 bb12 u 01 01
+bb12 bb12 s  dad b!
+bb13 bb13 d eb
+bb13 bb13 u 01 01
+bb13 bb13 s  xchg!
+bb14 bb14 d 09
+bb14 bb14 u 01 01
+bb14 bb14 s  dad b
+bb15 bb15 s 		;DE=.buff(reccnt), HL=.fcb(reccnt)
+bb15 bb15 d 7e
+bb15 bb15 u 01 01
+bb15 bb15 s 		mov a,m!
+bb16 bb16 d 12
+bb16 bb16 u 01 01
+bb16 bb16 s  stax d ;buff(reccnt)=fcb(reccnt)
+bb17 bb17 s 	endmerge:
+bb17 bb17 d 3eff
+bb17 bb17 u 02 01
+bb17 bb17 s 		mvi a,true!
+bb19 bb19 d 32d2bf
+bb19 bb19 u 03 01
+bb19 bb19 s  sta fcb$copied ;mark as copied
+bb1c bb1c d c310ba
+bb1c bb1c u 03 01
+bb1c bb1c s 		jmp seek$copy ;ok to "wrdir" here - 1.4 compat
+bb1f bb1f s 	;		ret				;
+bb1f bb1f s 	mergerr:
+bb1f bb1f s 		;elements did not merge correctly
+bb1f bb1f d 2145b5
+bb1f bb1f u 03 01
+bb1f bb1f s 		lxi h,lret!
+bb22 bb22 d 35
+bb22 bb22 u 01 01
+bb22 bb22 s  dcr m ;=255 non zero flag set
+bb23 bb23 d c9
+bb23 bb23 u 01 01
+bb23 bb23 s 	ret
+bb24 bb24 s ;
+bb24 bb24 s make:
+bb24 bb24 s 	;create a new file by creating a directory entry
+bb24 bb24 s 	;then opening the file
+bb24 bb24 d cd54b7
+bb24 bb24 u 03 01
+bb24 bb24 s 	call check$write ;may be write protected
+bb27 bb27 d 2a43b5
+bb27 bb27 u 03 01
+bb27 bb27 s 	lhld info!
+bb2a bb2a d e5
+bb2a bb2a u 01 01
+bb2a bb2a s  push h ;save fcb address, look for e5
+bb2b bb2b d 21acbf
+bb2b bb2b u 03 01
+bb2b bb2b s 	lxi h,efcb!
+bb2e bb2e d 2243b5
+bb2e bb2e u 03 01
+bb2e bb2e s  shld info ;info = .empty
+bb31 bb31 d 0e01
+bb31 bb31 u 02 01
+bb31 bb31 s 	mvi c,1!
+bb33 bb33 d cd18b9
+bb33 bb33 u 03 01
+bb33 bb33 s  call search ;length 1 match on empty entry
+bb36 bb36 d cdf5b7
+bb36 bb36 u 03 01
+bb36 bb36 s 	call end$of$dir ;zero flag set if no space
+bb39 bb39 d e1
+bb39 bb39 u 01 01
+bb39 bb39 s 	pop h ;recall info address
+bb3a bb3a d 2243b5
+bb3a bb3a u 03 01
+bb3a bb3a s 	shld info ;in case we return here
+bb3d bb3d d c8
+bb3d bb3d u 01 01
+bb3d bb3d s 	rz ;return with error condition 255 if not found
+bb3e bb3e d eb
+bb3e bb3e u 01 01
+bb3e bb3e s 	xchg ;DE = info address
+bb3f bb3f s 	;clear the remainder of the fcb
+bb3f bb3f d 210f00
+bb3f bb3f u 03 01
+bb3f bb3f s 	lxi h,namlen!
+bb42 bb42 d 19
+bb42 bb42 u 01 01
+bb42 bb42 s  dad d ;HL=.fcb(namlen)
+bb43 bb43 d 0e11
+bb43 bb43 u 02 01
+bb43 bb43 s 	mvi c,fcblen-namlen ;number of bytes to fill
+bb45 bb45 d af
+bb45 bb45 u 01 01
+bb45 bb45 s 	xra a ;clear accumulator to 00 for fill
+bb46 bb46 s 	make0:
+bb46 bb46 d 77
+bb46 bb46 u 01 01
+bb46 bb46 s 		mov m,a!
+bb47 bb47 d 23
+bb47 bb47 u 01 01
+bb47 bb47 s  inx h!
+bb48 bb48 d 0d
+bb48 bb48 u 01 01
+bb48 bb48 s  dcr c!
+bb49 bb49 d c246bb
+bb49 bb49 u 03 01
+bb49 bb49 s  jnz make0
+bb4c bb4c d 210d00
+bb4c bb4c u 03 01
+bb4c bb4c s 	lxi h,ubytes!
+bb4f bb4f d 19
+bb4f bb4f u 01 01
+bb4f bb4f s  dad d ;HL = .fcb(ubytes)
+bb50 bb50 d 77
+bb50 bb50 u 01 01
+bb50 bb50 s 	mov m,a ;fcb(ubytes) = 0
+bb51 bb51 d cd8cb7
+bb51 bb51 u 03 01
+bb51 bb51 s 	call setcdr ;may have extended the directory
+bb54 bb54 s 	;now copy entry to the directory
+bb54 bb54 d cdfdb9
+bb54 bb54 u 03 01
+bb54 bb54 s 	call copy$fcb
+bb57 bb57 s 	;and set the file write flag to "1"
+bb57 bb57 d c378b7
+bb57 bb57 u 03 01
+bb57 bb57 s 	jmp setfwf
+bb5a bb5a s 	;ret
+bb5a bb5a s ;
+bb5a bb5a s open$reel:
+bb5a bb5a s 	;close the current extent, and open the next one
+bb5a bb5a s 	;if possible.  RMF is true if in read mode
+bb5a bb5a d af
+bb5a bb5a u 01 01
+bb5a bb5a s 		xra a!
+bb5b bb5b d 32d2bf
+bb5b bb5b u 03 01
+bb5b bb5b s  sta fcb$copied ;set true if actually copied
+bb5e bb5e d cda2ba
+bb5e bb5e u 03 01
+bb5e bb5e s 		call close ;close current extent
+bb61 bb61 s 		;lret remains at enddir if we cannot open the next ext
+bb61 bb61 d cdf5b7
+bb61 bb61 u 03 01
+bb61 bb61 s 		call end$of$dir!
+bb64 bb64 d c8
+bb64 bb64 u 01 01
+bb64 bb64 s  rz ;return if end
+bb65 bb65 s 	;increment extent number
+bb65 bb65 d 2a43b5
+bb65 bb65 u 03 01
+bb65 bb65 s 	lhld info!
+bb68 bb68 d 010c00
+bb68 bb68 u 03 01
+bb68 bb68 s  lxi b,extnum!
+bb6b bb6b d 09
+bb6b bb6b u 01 01
+bb6b bb6b s  dad b ;HL=.fcb(extnum)
+bb6c bb6c d 7e
+bb6c bb6c u 01 01
+bb6c bb6c s 	mov a,m!
+bb6d bb6d d 3c
+bb6d bb6d u 01 01
+bb6d bb6d s  inr a!
+bb6e bb6e d e61f
+bb6e bb6e u 02 01
+bb6e bb6e s  ani maxext!
+bb70 bb70 d 77
+bb70 bb70 u 01 01
+bb70 bb70 s  mov m,a ;fcb(extnum)=++1
+bb71 bb71 d ca83bb
+bb71 bb71 u 03 01
+bb71 bb71 s 	jz open$mod ;move to next module if zero
+bb74 bb74 s 	;may be in the same extent group
+bb74 bb74 d 47
+bb74 bb74 u 01 01
+bb74 bb74 s 	mov b,a!
+bb75 bb75 d 3ac5bf
+bb75 bb75 u 03 01
+bb75 bb75 s  lda extmsk!
+bb78 bb78 d a0
+bb78 bb78 u 01 01
+bb78 bb78 s  ana b
+bb79 bb79 s 	;if result is zero, then not in the same group
+bb79 bb79 d 21d2bf
+bb79 bb79 u 03 01
+bb79 bb79 s 	lxi h,fcb$copied ;true if the fcb was copied to directory
+bb7c bb7c d a6
+bb7c bb7c u 01 01
+bb7c bb7c s 	ana m ;produces a 00 in accumulator if not written
+bb7d bb7d d ca8ebb
+bb7d bb7d u 03 01
+bb7d bb7d s 	jz open$reel0 ;go to next physical extent
+bb80 bb80 s 	;result is non zero, so we must be in same logical ext
+bb80 bb80 d c3acbb
+bb80 bb80 u 03 01
+bb80 bb80 s 	jmp open$reel1 ;to copy fcb information
+bb83 bb83 s 	open$mod:
+bb83 bb83 s 		;extent number overflow, go to next module
+bb83 bb83 d 010200
+bb83 bb83 u 03 01
+bb83 bb83 s 		lxi b,(modnum-extnum)!
+bb86 bb86 d 09
+bb86 bb86 u 01 01
+bb86 bb86 s  dad b ;HL=.fcb(modnum)
+bb87 bb87 d 34
+bb87 bb87 u 01 01
+bb87 bb87 s 		inr m ;fcb(modnum)=++1
+bb88 bb88 s 		;module number incremented, check for overflow
+bb88 bb88 d 7e
+bb88 bb88 u 01 01
+bb88 bb88 s 		mov a,m!
+bb89 bb89 d e60f
+bb89 bb89 u 02 01
+bb89 bb89 s  ani maxmod ;mask high order bits
+bb8b bb8b d cab6bb
+bb8b bb8b u 03 01
+bb8b bb8b s 		jz open$r$err ;cannot overflow to zero
+bb8e bb8e s 		;otherwise, ok to continue with new module
+bb8e bb8e s 	open$reel0:
+bb8e bb8e d 0e0f
+bb8e bb8e u 02 01
+bb8e bb8e s 		mvi c,namlen!
+bb90 bb90 d cd18b9
+bb90 bb90 u 03 01
+bb90 bb90 s  call search ;next extent found?
+bb93 bb93 d cdf5b7
+bb93 bb93 u 03 01
+bb93 bb93 s 		call end$of$dir!
+bb96 bb96 d c2acbb
+bb96 bb96 u 03 01
+bb96 bb96 s  jnz open$reel1
+bb99 bb99 s 			;end of file encountered
+bb99 bb99 d 3ad3bf
+bb99 bb99 u 03 01
+bb99 bb99 s 			lda rmf!
+bb9c bb9c d 3c
+bb9c bb9c u 01 01
+bb9c bb9c s  inr a ;0ffh becomes 00 if read
+bb9d bb9d d cab6bb
+bb9d bb9d u 03 01
+bb9d bb9d s 			jz open$r$err ;sets lret = 1
+bba0 bba0 s 			;try to extend the current file
+bba0 bba0 d cd24bb
+bba0 bba0 u 03 01
+bba0 bba0 s 			call make
+bba3 bba3 s 			;cannot be end of directory
+bba3 bba3 d cdf5b7
+bba3 bba3 u 03 01
+bba3 bba3 s 			call end$of$dir
+bba6 bba6 d cab6bb
+bba6 bba6 u 03 01
+bba6 bba6 s 			jz open$r$err ;with lret = 1
+bba9 bba9 d c3afbb
+bba9 bba9 u 03 01
+bba9 bba9 s 			jmp open$reel2
+bbac bbac s 		open$reel1:
+bbac bbac s 			;not end of file, open
+bbac bbac d cd5aba
+bbac bbac u 03 01
+bbac bbac s 			call open$copy
+bbaf bbaf s 		open$reel2:
+bbaf bbaf d cdbbb6
+bbaf bbaf u 03 01
+bbaf bbaf s 			call getfcb ;set parameters
+bbb2 bbb2 d af
+bbb2 bbb2 u 01 01
+bbb2 bbb2 s 			xra a!
+bbb3 bbb3 d c301b5
+bbb3 bbb3 u 03 01
+bbb3 bbb3 s  jmp sta$ret ;lret = 0	;
+bbb6 bbb6 s ;			ret ;with lret = 0
+bbb6 bbb6 s 	open$r$err:
+bbb6 bbb6 s 		;cannot move to next extent of this file
+bbb6 bbb6 d cd05b5
+bbb6 bbb6 u 03 01
+bbb6 bbb6 s 		call setlret1 ;lret = 1
+bbb9 bbb9 d c378b7
+bbb9 bbb9 u 03 01
+bbb9 bbb9 s 		jmp setfwf ;ensure that it will not be closed
+bbbc bbbc s 		;ret
+bbbc bbbc s ;
+bbbc bbbc s seqdiskread:
+bbbc bbbc s 	;sequential disk read operation
+bbbc bbbc d 3e01
+bbbc bbbc u 02 01
+bbbc bbbc s 	mvi a,1!
+bbbe bbbe d 32d5bf
+bbbe bbbe u 03 01
+bbbe bbbe s  sta seqio
+bbc1 bbc1 s 	;drop through to diskread
+bbc1 bbc1 s ;
+bbc1 bbc1 s diskread:	;(may enter from seqdiskread)
+bbc1 bbc1 d 3eff
+bbc1 bbc1 u 02 01
+bbc1 bbc1 s 	mvi a,true!
+bbc3 bbc3 d 32d3bf
+bbc3 bbc3 u 03 01
+bbc3 bbc3 s  sta rmf ;read mode flag = true (open$reel)
+bbc6 bbc6 s 	;read the next record from the current fcb
+bbc6 bbc6 d cdbbb6
+bbc6 bbc6 u 03 01
+bbc6 bbc6 s 	call getfcb ;sets parameters for the read
+bbc9 bbc9 d 3ae3bf
+bbc9 bbc9 u 03 01
+bbc9 bbc9 s 	lda vrecord!
+bbcc bbcc d 21e1bf
+bbcc bbcc u 03 01
+bbcc bbcc s  lxi h,rcount!
+bbcf bbcf d be
+bbcf bbcf u 01 01
+bbcf bbcf s  cmp m ;vrecord-rcount
+bbd0 bbd0 s 	;skip if rcount > vrecord
+bbd0 bbd0 d dae6bb
+bbd0 bbd0 u 03 01
+bbd0 bbd0 s 	jc recordok
+bbd3 bbd3 s 		;not enough records in the extent
+bbd3 bbd3 s 		;record count must be 128 to continue
+bbd3 bbd3 d fe80
+bbd3 bbd3 u 02 01
+bbd3 bbd3 s 		cpi 128 ;vrecord = 128?
+bbd5 bbd5 d c2fbbb
+bbd5 bbd5 u 03 01
+bbd5 bbd5 s 		jnz diskeof ;skip if vrecord<>128
+bbd8 bbd8 d cd5abb
+bbd8 bbd8 u 03 01
+bbd8 bbd8 s 		call open$reel ;go to next extent if so
+bbdb bbdb d af
+bbdb bbdb u 01 01
+bbdb bbdb s 		xra a!
+bbdc bbdc d 32e3bf
+bbdc bbdc u 03 01
+bbdc bbdc s  sta vrecord ;vrecord=00
+bbdf bbdf s 		;now check for open ok
+bbdf bbdf d 3a45b5
+bbdf bbdf u 03 01
+bbdf bbdf s 		lda lret!
+bbe2 bbe2 d b7
+bbe2 bbe2 u 01 01
+bbe2 bbe2 s  ora a!
+bbe3 bbe3 d c2fbbb
+bbe3 bbe3 u 03 01
+bbe3 bbe3 s  jnz diskeof ;stop at eof
+bbe6 bbe6 s 	recordok:
+bbe6 bbe6 s 		;arrive with fcb addressing a record to read
+bbe6 bbe6 d cd77b6
+bbe6 bbe6 u 03 01
+bbe6 bbe6 s 		call index
+bbe9 bbe9 s 		;error 2 if reading unwritten data
+bbe9 bbe9 s 		;(returns 1 to be compatible with 1.4)
+bbe9 bbe9 d cd84b6
+bbe9 bbe9 u 03 01
+bbe9 bbe9 s 		call allocated ;arecord=0000?
+bbec bbec d cafbbb
+bbec bbec u 03 01
+bbec bbec s 		jz diskeof
+bbef bbef s 		;record has been allocated, read it
+bbef bbef d cd8ab6
+bbef bbef u 03 01
+bbef bbef s 		call atran ;arecord now a disk address
+bbf2 bbf2 d cdd1b5
+bbf2 bbf2 u 03 01
+bbf2 bbf2 s 		call seek ;to proper track,sector
+bbf5 bbf5 d cdb2b5
+bbf5 bbf5 u 03 01
+bbf5 bbf5 s 		call rdbuff ;to dma address
+bbf8 bbf8 d c3d2b6
+bbf8 bbf8 u 03 01
+bbf8 bbf8 s 		jmp setfcb ;replace parameter	
+bbfb bbfb s ;		ret					;
+bbfb bbfb s 	diskeof:
+bbfb bbfb d c305b5
+bbfb bbfb u 03 01
+bbfb bbfb s 		jmp setlret1 ;lret = 1
+bbfe bbfe s 		;ret
+bbfe bbfe s ;
+bbfe bbfe s seqdiskwrite:
+bbfe bbfe s 	;sequential disk write
+bbfe bbfe d 3e01
+bbfe bbfe u 02 01
+bbfe bbfe s 	mvi a,1!
+bc00 bc00 d 32d5bf
+bc00 bc00 u 03 01
+bc00 bc00 s  sta seqio
+bc03 bc03 s 	;drop through to diskwrite
+bc03 bc03 s ;
+bc03 bc03 s diskwrite:	;(may enter here from seqdiskwrite above)
+bc03 bc03 d 3e00
+bc03 bc03 u 02 01
+bc03 bc03 s 	mvi a,false!
+bc05 bc05 d 32d3bf
+bc05 bc05 u 03 01
+bc05 bc05 s  sta rmf ;read mode flag
+bc08 bc08 s 	;write record to currently selected file
+bc08 bc08 d cd54b7
+bc08 bc08 u 03 01
+bc08 bc08 s 	call check$write ;in case write protected
+bc0b bc0b d 2a43b5
+bc0b bc0b u 03 01
+bc0b bc0b s 	lhld info ;HL = .fcb(0)
+bc0e bc0e d cd47b7
+bc0e bc0e u 03 01
+bc0e bc0e s 	call check$rofile ;may be a read-only file
+bc11 bc11 d cdbbb6
+bc11 bc11 u 03 01
+bc11 bc11 s 	call getfcb ;to set local parameters
+bc14 bc14 d 3ae3bf
+bc14 bc14 u 03 01
+bc14 bc14 s 	lda vrecord!
+bc17 bc17 d fe80
+bc17 bc17 u 02 01
+bc17 bc17 s  cpi lstrec+1 ;vrecord-128
+bc19 bc19 s 	;skip if vrecord > lstrec
+bc19 bc19 s 		;vrecord = 128, cannot open next extent
+bc19 bc19 d d205b5
+bc19 bc19 u 03 01
+bc19 bc19 s 		jnc setlret1	 ;lret=1		;
+bc1c bc1c s 	diskwr0:
+bc1c bc1c s 	;can write the next record, so continue
+bc1c bc1c d cd77b6
+bc1c bc1c u 03 01
+bc1c bc1c s 	call index
+bc1f bc1f d cd84b6
+bc1f bc1f u 03 01
+bc1f bc1f s 	call allocated
+bc22 bc22 d 0e00
+bc22 bc22 u 02 01
+bc22 bc22 s 	mvi c,0 ;marked as normal write operation for wrbuff
+bc24 bc24 d c26ebc
+bc24 bc24 u 03 01
+bc24 bc24 s 	jnz diskwr1
+bc27 bc27 s 		;not allocated
+bc27 bc27 s 		;the argument to getblock is the starting
+bc27 bc27 s 		;position for the disk search, and should be
+bc27 bc27 s 		;the last allocated block for this file, or
+bc27 bc27 s 		;the value 0 if no space has been allocated
+bc27 bc27 d cd3eb6
+bc27 bc27 u 03 01
+bc27 bc27 s 		call dm$position
+bc2a bc2a d 32d7bf
+bc2a bc2a u 03 01
+bc2a bc2a s 		sta dminx ;save for later
+bc2d bc2d d 010000
+bc2d bc2d u 03 01
+bc2d bc2d s 		lxi b,0000h ;may use block zero
+bc30 bc30 d b7
+bc30 bc30 u 01 01
+bc30 bc30 s 		ora a!
+bc31 bc31 d ca3bbc
+bc31 bc31 u 03 01
+bc31 bc31 s  jz nopblock ;skip if no previous block
+bc34 bc34 s 			;previous block exists at A
+bc34 bc34 d 4f
+bc34 bc34 u 01 01
+bc34 bc34 s 			mov c,a!
+bc35 bc35 d 0b
+bc35 bc35 u 01 01
+bc35 bc35 s  dcx b ;previous block # in BC
+bc36 bc36 d cd5eb6
+bc36 bc36 u 03 01
+bc36 bc36 s 			call getdm ;previous block # to HL
+bc39 bc39 d 44
+bc39 bc39 u 01 01
+bc39 bc39 s 			mov b,h!
+bc3a bc3a d 4d
+bc3a bc3a u 01 01
+bc3a bc3a s  mov c,l ;BC=prev block#
+bc3b bc3b s 		nopblock:
+bc3b bc3b s 			;BC = 0000, or previous block #
+bc3b bc3b d cdbeb9
+bc3b bc3b u 03 01
+bc3b bc3b s 			call get$block ;block # to HL
+bc3e bc3e s 		;arrive here with block# or zero
+bc3e bc3e d 7d
+bc3e bc3e u 01 01
+bc3e bc3e s 		mov a,l!
+bc3f bc3f d b4
+bc3f bc3f u 01 01
+bc3f bc3f s  ora h!
+bc40 bc40 d c248bc
+bc40 bc40 u 03 01
+bc40 bc40 s  jnz blockok
+bc43 bc43 s 			;cannot find a block to allocate
+bc43 bc43 d 3e02
+bc43 bc43 u 02 01
+bc43 bc43 s 			mvi a,2!
+bc45 bc45 d c301b5
+bc45 bc45 u 03 01
+bc45 bc45 s  jmp sta$ret 	;lret=2	
+bc48 bc48 s 		blockok:
+bc48 bc48 s 		;allocated block number is in HL
+bc48 bc48 d 22e5bf
+bc48 bc48 u 03 01
+bc48 bc48 s 		shld arecord
+bc4b bc4b d eb
+bc4b bc4b u 01 01
+bc4b bc4b s 		xchg ;block number to DE
+bc4c bc4c d 2a43b5
+bc4c bc4c u 03 01
+bc4c bc4c s 		lhld info!
+bc4f bc4f d 011000
+bc4f bc4f u 03 01
+bc4f bc4f s  lxi b,dskmap!
+bc52 bc52 d 09
+bc52 bc52 u 01 01
+bc52 bc52 s  dad b ;HL=.fcb(dskmap)
+bc53 bc53 d 3addbf
+bc53 bc53 u 03 01
+bc53 bc53 s 		lda single!
+bc56 bc56 d b7
+bc56 bc56 u 01 01
+bc56 bc56 s  ora a ;set flags for single byte dm
+bc57 bc57 d 3ad7bf
+bc57 bc57 u 03 01
+bc57 bc57 s 		lda dminx ;recall dm index
+bc5a bc5a d ca64bc
+bc5a bc5a u 03 01
+bc5a bc5a s 		jz allocwd ;skip if allocating word
+bc5d bc5d s 			;allocating a byte value
+bc5d bc5d d cd64b7
+bc5d bc5d u 03 01
+bc5d bc5d s 			call addh!
+bc60 bc60 d 73
+bc60 bc60 u 01 01
+bc60 bc60 s  mov m,e ;single byte alloc
+bc61 bc61 d c36cbc
+bc61 bc61 u 03 01
+bc61 bc61 s 			jmp diskwru ;to continue
+bc64 bc64 s 		allocwd:
+bc64 bc64 s 		;allocate a word value
+bc64 bc64 d 4f
+bc64 bc64 u 01 01
+bc64 bc64 s 			mov c,a!
+bc65 bc65 d 0600
+bc65 bc65 u 02 01
+bc65 bc65 s  mvi b,0 ;double(dminx)
+bc67 bc67 d 09
+bc67 bc67 u 01 01
+bc67 bc67 s 			dad b!
+bc68 bc68 d 09
+bc68 bc68 u 01 01
+bc68 bc68 s  dad b ;HL=.fcb(dminx*2)
+bc69 bc69 d 73
+bc69 bc69 u 01 01
+bc69 bc69 s 			mov m,e!
+bc6a bc6a d 23
+bc6a bc6a u 01 01
+bc6a bc6a s  inx h!
+bc6b bc6b d 72
+bc6b bc6b u 01 01
+bc6b bc6b s  mov m,d ;double wd
+bc6c bc6c s 		diskwru:
+bc6c bc6c s 		;disk write to previously unallocated block
+bc6c bc6c d 0e02
+bc6c bc6c u 02 01
+bc6c bc6c s 		mvi c,2 ;marked as unallocated write
+bc6e bc6e s 	diskwr1:
+bc6e bc6e s 	;continue the write operation of no allocation error
+bc6e bc6e s 	;C = 0 if normal write, 2 if to prev unalloc block
+bc6e bc6e d 3a45b5
+bc6e bc6e u 03 01
+bc6e bc6e s 	lda lret!
+bc71 bc71 d b7
+bc71 bc71 u 01 01
+bc71 bc71 s  ora a!
+bc72 bc72 d c0
+bc72 bc72 u 01 01
+bc72 bc72 s  rnz ;stop if non zero returned value
+bc73 bc73 d c5
+bc73 bc73 u 01 01
+bc73 bc73 s 	push b ;save write flag
+bc74 bc74 d cd8ab6
+bc74 bc74 u 03 01
+bc74 bc74 s 	call atran ;arecord set
+bc77 bc77 d 3ad5bf
+bc77 bc77 u 03 01
+bc77 bc77 s 		lda seqio!
+bc7a bc7a d 3d
+bc7a bc7a u 01 01
+bc7a bc7a s  dcr a!
+bc7b bc7b d 3d
+bc7b bc7b u 01 01
+bc7b bc7b s  dcr a!
+bc7c bc7c d c2bbbc
+bc7c bc7c u 03 01
+bc7c bc7c s  jnz diskwr11   ;
+bc7f bc7f d c1
+bc7f bc7f u 01 01
+bc7f bc7f s 		pop b!
+bc80 bc80 d c5
+bc80 bc80 u 01 01
+bc80 bc80 s  push b!
+bc81 bc81 d 79
+bc81 bc81 u 01 01
+bc81 bc81 s  mov a,c!
+bc82 bc82 d 3d
+bc82 bc82 u 01 01
+bc82 bc82 s  dcr a!
+bc83 bc83 d 3d
+bc83 bc83 u 01 01
+bc83 bc83 s  dcr a	;
+bc84 bc84 d c2bbbc
+bc84 bc84 u 03 01
+bc84 bc84 s 		jnz diskwr11		;old allocation  
+bc87 bc87 d e5
+bc87 bc87 u 01 01
+bc87 bc87 s 		push h		;arecord in hl ret from atran
+bc88 bc88 d 2ab9bf
+bc88 bc88 u 03 01
+bc88 bc88 s 		lhld buffa!
+bc8b bc8b d 57
+bc8b bc8b u 01 01
+bc8b bc8b s  mov d,a	;zero buffa & fill 
+bc8c bc8c d 77
+bc8c bc8c u 01 01
+bc8c bc8c s 	fill0:  mov m,a!
+bc8d bc8d d 23
+bc8d bc8d u 01 01
+bc8d bc8d s  inx h!
+bc8e bc8e d 14
+bc8e bc8e u 01 01
+bc8e bc8e s  inr d!
+bc8f bc8f d f28cbc
+bc8f bc8f u 03 01
+bc8f bc8f s  jp fill0		;
+bc92 bc92 d cde0b7
+bc92 bc92 u 03 01
+bc92 bc92 s 		call setdir!
+bc95 bc95 d 2ae7bf
+bc95 bc95 u 03 01
+bc95 bc95 s  lhld arecord1		;
+bc98 bc98 d 0e02
+bc98 bc98 u 02 01
+bc98 bc98 s 		mvi c,2					;
+bc9a bc9a d 22e5bf
+bc9a bc9a u 03 01
+bc9a bc9a s 	fill1:  shld arecord!
+bc9d bc9d d c5
+bc9d bc9d u 01 01
+bc9d bc9d s  push b!
+bc9e bc9e d cdd1b5
+bc9e bc9e u 03 01
+bc9e bc9e s  call seek!
+bca1 bca1 d c1
+bca1 bca1 u 01 01
+bca1 bca1 s  pop b  ;
+bca2 bca2 d cdb8b5
+bca2 bca2 u 03 01
+bca2 bca2 s 		call wrbuff	;write fill record	;
+bca5 bca5 d 2ae5bf
+bca5 bca5 u 03 01
+bca5 bca5 s 		lhld arecord!
+bca8 bca8 s 	;restore last record     
+bca8 bca8 d 0e00
+bca8 bca8 u 02 01
+bca8 bca8 s 		mvi c,0		;change  allocate flag   
+bcaa bcaa d 3ac4bf
+bcaa bcaa u 03 01
+bcaa bcaa s 		lda blkmsk!
+bcad bcad d 47
+bcad bcad u 01 01
+bcad bcad s  mov b,a!
+bcae bcae d a5
+bcae bcae u 01 01
+bcae bcae s  ana l!
+bcaf bcaf d b8
+bcaf bcaf u 01 01
+bcaf bcaf s  cmp b
+bcb0 bcb0 d 23
+bcb0 bcb0 u 01 01
+bcb0 bcb0 s 	inx h	;
+bcb1 bcb1 d c29abc
+bcb1 bcb1 u 03 01
+bcb1 bcb1 s 		jnz fill1	;cont until cluster is zeroed
+bcb4 bcb4 d e1
+bcb4 bcb4 u 01 01
+bcb4 bcb4 s 		pop h!
+bcb5 bcb5 d 22e5bf
+bcb5 bcb5 u 03 01
+bcb5 bcb5 s  shld arecord!
+bcb8 bcb8 d cddab7
+bcb8 bcb8 u 03 01
+bcb8 bcb8 s  call setdata
+bcbb bcbb s 	diskwr11:					;
+bcbb bcbb d cdd1b5
+bcbb bcbb u 03 01
+bcbb bcbb s 	call seek ;to proper file position
+bcbe bcbe d c1
+bcbe bcbe u 01 01
+bcbe bcbe s 	pop b!
+bcbf bcbf d c5
+bcbf bcbf u 01 01
+bcbf bcbf s  push b ;restore/save write flag (C=2 if new block)
+bcc0 bcc0 d cdb8b5
+bcc0 bcc0 u 03 01
+bcc0 bcc0 s 	call wrbuff ;written to disk
+bcc3 bcc3 d c1
+bcc3 bcc3 u 01 01
+bcc3 bcc3 s 	pop b ;C = 2 if a new block was allocated, 0 if not
+bcc4 bcc4 s 	;increment record count if rcount<=vrecord
+bcc4 bcc4 d 3ae3bf
+bcc4 bcc4 u 03 01
+bcc4 bcc4 s 	lda vrecord!
+bcc7 bcc7 d 21e1bf
+bcc7 bcc7 u 03 01
+bcc7 bcc7 s  lxi h,rcount!
+bcca bcca d be
+bcca bcca u 01 01
+bcca bcca s  cmp m ;vrecord-rcount
+bccb bccb d dad2bc
+bccb bccb u 03 01
+bccb bccb s 	jc diskwr2
+bcce bcce s 		;rcount <= vrecord
+bcce bcce d 77
+bcce bcce u 01 01
+bcce bcce s 		mov m,a!
+bccf bccf d 34
+bccf bccf u 01 01
+bccf bccf s  inr m ;rcount = vrecord+1
+bcd0 bcd0 d 0e02
+bcd0 bcd0 u 02 01
+bcd0 bcd0 s 		mvi c,2 ;mark as record count incremented
+bcd2 bcd2 s 	diskwr2:
+bcd2 bcd2 s 	;A has vrecord, C=2 if new block or new record#
+bcd2 bcd2 d 0d
+bcd2 bcd2 u 01 01
+bcd2 bcd2 s 	dcr c!
+bcd3 bcd3 d 0d
+bcd3 bcd3 u 01 01
+bcd3 bcd3 s  dcr c!
+bcd4 bcd4 d c2dfbc
+bcd4 bcd4 u 03 01
+bcd4 bcd4 s  jnz noupdate
+bcd7 bcd7 d f5
+bcd7 bcd7 u 01 01
+bcd7 bcd7 s 		push psw ;save vrecord value
+bcd8 bcd8 d cd69b7
+bcd8 bcd8 u 03 01
+bcd8 bcd8 s 		call getmodnum ;HL=.fcb(modnum), A=fcb(modnum)
+bcdb bcdb s 		;reset the file write flag to mark as written fcb
+bcdb bcdb d e67f
+bcdb bcdb u 02 01
+bcdb bcdb s 		ani (not fwfmsk) and 0ffh ;bit reset
+bcdd bcdd d 77
+bcdd bcdd u 01 01
+bcdd bcdd s 		mov m,a ;fcb(modnum) = fcb(modnum) and 7fh
+bcde bcde d f1
+bcde bcde u 01 01
+bcde bcde s 		pop psw ;restore vrecord
+bcdf bcdf s 	noupdate:
+bcdf bcdf s 	;check for end of extent, if found attempt to open
+bcdf bcdf s 	;next extent in preparation for next write
+bcdf bcdf d fe7f
+bcdf bcdf u 02 01
+bcdf bcdf s 	cpi lstrec ;vrecord=lstrec?
+bce1 bce1 d c200bd
+bce1 bce1 u 03 01
+bce1 bce1 s 	jnz diskwr3 ;skip if not
+bce4 bce4 s 	;may be random access write, if so we are done
+bce4 bce4 s 					;change next     
+bce4 bce4 d 3ad5bf
+bce4 bce4 u 03 01
+bce4 bce4 s 	lda seqio!
+bce7 bce7 d fe01
+bce7 bce7 u 02 01
+bce7 bce7 s  cpi 1!
+bce9 bce9 d c200bd
+bce9 bce9 u 03 01
+bce9 bce9 s  jnz diskwr3 ;skip next extent open op
+bcec bcec s 		;update current fcb before going to next extent
+bcec bcec d cdd2b6
+bcec bcec u 03 01
+bcec bcec s 		call setfcb
+bcef bcef d cd5abb
+bcef bcef u 03 01
+bcef bcef s 		call open$reel ;rmf=false
+bcf2 bcf2 s 		;vrecord remains at lstrec causing eof if
+bcf2 bcf2 s 		;no more directory space is available
+bcf2 bcf2 d 2145b5
+bcf2 bcf2 u 03 01
+bcf2 bcf2 s 		lxi h,lret!
+bcf5 bcf5 d 7e
+bcf5 bcf5 u 01 01
+bcf5 bcf5 s  mov a,m!
+bcf6 bcf6 d b7
+bcf6 bcf6 u 01 01
+bcf6 bcf6 s  ora a!
+bcf7 bcf7 d c2febc
+bcf7 bcf7 u 03 01
+bcf7 bcf7 s  jnz nospace
+bcfa bcfa s 			;space available, set vrecord=255
+bcfa bcfa d 3d
+bcfa bcfa u 01 01
+bcfa bcfa s 			dcr a!
+bcfb bcfb d 32e3bf
+bcfb bcfb u 03 01
+bcfb bcfb s  sta vrecord ;goes to 00 next time
+bcfe bcfe s 		nospace:
+bcfe bcfe d 3600
+bcfe bcfe u 02 01
+bcfe bcfe s 		mvi m,0 ;lret = 00 for returned value
+bd00 bd00 s 	diskwr3:
+bd00 bd00 d c3d2b6
+bd00 bd00 u 03 01
+bd00 bd00 s 	jmp setfcb ;replace parameters
+bd03 bd03 s 	;ret
+bd03 bd03 s ;
+bd03 bd03 s rseek:
+bd03 bd03 s 	;random access seek operation, C=0ffh if read mode
+bd03 bd03 s 	;fcb is assumed to address an active file control block
+bd03 bd03 s 	;(modnum has been set to 1100$0000b if previous bad seek)
+bd03 bd03 d af
+bd03 bd03 u 01 01
+bd03 bd03 s 	xra a!
+bd04 bd04 d 32d5bf
+bd04 bd04 u 03 01
+bd04 bd04 s  sta seqio ;marked as random access operation
+bd07 bd07 s rseek1:
+bd07 bd07 d c5
+bd07 bd07 u 01 01
+bd07 bd07 s 	push b ;save r/w flag
+bd08 bd08 d 2a43b5
+bd08 bd08 u 03 01
+bd08 bd08 s 	lhld info!
+bd0b bd0b d eb
+bd0b bd0b u 01 01
+bd0b bd0b s  xchg ;DE will hold base of fcb
+bd0c bd0c d 212100
+bd0c bd0c u 03 01
+bd0c bd0c s 		lxi h,ranrec!
+bd0f bd0f d 19
+bd0f bd0f u 01 01
+bd0f bd0f s  dad d ;HL=.fcb(ranrec)
+bd10 bd10 d 7e
+bd10 bd10 u 01 01
+bd10 bd10 s 		mov a,m!
+bd11 bd11 d e67f
+bd11 bd11 u 02 01
+bd11 bd11 s  ani 7fh!
+bd13 bd13 d f5
+bd13 bd13 u 01 01
+bd13 bd13 s  push psw ;record number
+bd14 bd14 d 7e
+bd14 bd14 u 01 01
+bd14 bd14 s 		mov a,m!
+bd15 bd15 d 17
+bd15 bd15 u 01 01
+bd15 bd15 s  ral ;cy=lsb of extent#
+bd16 bd16 d 23
+bd16 bd16 u 01 01
+bd16 bd16 s 		inx h!
+bd17 bd17 d 7e
+bd17 bd17 u 01 01
+bd17 bd17 s  mov a,m!
+bd18 bd18 d 17
+bd18 bd18 u 01 01
+bd18 bd18 s  ral!
+bd19 bd19 d e61f
+bd19 bd19 u 02 01
+bd19 bd19 s  ani 11111b ;A=ext#
+bd1b bd1b d 4f
+bd1b bd1b u 01 01
+bd1b bd1b s 		mov c,a ;C holds extent number, record stacked
+bd1c bd1c d 7e
+bd1c bd1c u 01 01
+bd1c bd1c s 		mov a,m!
+bd1d bd1d d 1f
+bd1d bd1d u 01 01
+bd1d bd1d s  rar!
+bd1e bd1e d 1f
+bd1e bd1e u 01 01
+bd1e bd1e s  rar!
+bd1f bd1f d 1f
+bd1f bd1f u 01 01
+bd1f bd1f s  rar!
+bd20 bd20 d 1f
+bd20 bd20 u 01 01
+bd20 bd20 s  rar!
+bd21 bd21 d e60f
+bd21 bd21 u 02 01
+bd21 bd21 s  ani 1111b ;mod#
+bd23 bd23 d 47
+bd23 bd23 u 01 01
+bd23 bd23 s 		mov b,a ;B holds module#, C holds ext#
+bd24 bd24 d f1
+bd24 bd24 u 01 01
+bd24 bd24 s 		pop psw ;recall sought record #
+bd25 bd25 s 		;check to insure that high byte of ran rec = 00
+bd25 bd25 d 23
+bd25 bd25 u 01 01
+bd25 bd25 s 		inx h!
+bd26 bd26 d 6e
+bd26 bd26 u 01 01
+bd26 bd26 s  mov l,m ;l=high byte (must be 00)
+bd27 bd27 d 2c
+bd27 bd27 u 01 01
+bd27 bd27 s 		inr l!
+bd28 bd28 d 2d
+bd28 bd28 u 01 01
+bd28 bd28 s  dcr l!
+bd29 bd29 d 2e06
+bd29 bd29 u 02 01
+bd29 bd29 s  mvi l,6 ;zero flag, l=6
+bd2b bd2b s 		;produce error 6, seek past physical eod
+bd2b bd2b d c28bbd
+bd2b bd2b u 03 01
+bd2b bd2b s 		jnz seekerr
+bd2e bd2e s 		;otherwise, high byte = 0, A = sought record
+bd2e bd2e d 212000
+bd2e bd2e u 03 01
+bd2e bd2e s 		lxi h,nxtrec!
+bd31 bd31 d 19
+bd31 bd31 u 01 01
+bd31 bd31 s  dad d ;HL = .fcb(nxtrec)
+bd32 bd32 d 77
+bd32 bd32 u 01 01
+bd32 bd32 s 		mov m,a ;sought rec# stored away
+bd33 bd33 s 	;arrive here with B=mod#, C=ext#, DE=.fcb, rec stored
+bd33 bd33 s 	;the r/w flag is still stacked.  compare fcb values
+bd33 bd33 d 210c00
+bd33 bd33 u 03 01
+bd33 bd33 s 		lxi h,extnum!
+bd36 bd36 d 19
+bd36 bd36 u 01 01
+bd36 bd36 s  dad d!
+bd37 bd37 d 79
+bd37 bd37 u 01 01
+bd37 bd37 s  mov a,c ;A=seek ext#
+bd38 bd38 d 96
+bd38 bd38 u 01 01
+bd38 bd38 s 		sub m!
+bd39 bd39 d c247bd
+bd39 bd39 u 03 01
+bd39 bd39 s  jnz ranclose ;tests for = extents
+bd3c bd3c s 		;extents match, check mod#
+bd3c bd3c d 210e00
+bd3c bd3c u 03 01
+bd3c bd3c s 		lxi h,modnum!
+bd3f bd3f d 19
+bd3f bd3f u 01 01
+bd3f bd3f s  dad d!
+bd40 bd40 d 78
+bd40 bd40 u 01 01
+bd40 bd40 s  mov a,b ;B=seek mod#
+bd41 bd41 s 		;could be overflow at eof, producing module#
+bd41 bd41 s 		;of 90H or 10H, so compare all but fwf
+bd41 bd41 d 96
+bd41 bd41 u 01 01
+bd41 bd41 s 		sub m!
+bd42 bd42 d e67f
+bd42 bd42 u 02 01
+bd42 bd42 s  ani 7fh!
+bd44 bd44 d ca7fbd
+bd44 bd44 u 03 01
+bd44 bd44 s  jz seekok ;same?
+bd47 bd47 s 	ranclose:
+bd47 bd47 d c5
+bd47 bd47 u 01 01
+bd47 bd47 s 		push b!
+bd48 bd48 d d5
+bd48 bd48 u 01 01
+bd48 bd48 s  push d ;save seek mod#,ext#, .fcb
+bd49 bd49 d cda2ba
+bd49 bd49 u 03 01
+bd49 bd49 s 		call close ;current extent closed
+bd4c bd4c d d1
+bd4c bd4c u 01 01
+bd4c bd4c s 		pop d!
+bd4d bd4d d c1
+bd4d bd4d u 01 01
+bd4d bd4d s  pop b ;recall parameters and fill
+bd4e bd4e d 2e03
+bd4e bd4e u 02 01
+bd4e bd4e s 		mvi l,3 ;cannot close error #3
+bd50 bd50 d 3a45b5
+bd50 bd50 u 03 01
+bd50 bd50 s 		lda lret!
+bd53 bd53 d 3c
+bd53 bd53 u 01 01
+bd53 bd53 s  inr a!
+bd54 bd54 d ca84bd
+bd54 bd54 u 03 01
+bd54 bd54 s  jz badseek
+bd57 bd57 d 210c00
+bd57 bd57 u 03 01
+bd57 bd57 s 		lxi h,extnum!
+bd5a bd5a d 19
+bd5a bd5a u 01 01
+bd5a bd5a s  dad d!
+bd5b bd5b d 71
+bd5b bd5b u 01 01
+bd5b bd5b s  mov m,c ;fcb(extnum)=ext#
+bd5c bd5c d 210e00
+bd5c bd5c u 03 01
+bd5c bd5c s 		lxi h,modnum!
+bd5f bd5f d 19
+bd5f bd5f u 01 01
+bd5f bd5f s  dad d!
+bd60 bd60 d 70
+bd60 bd60 u 01 01
+bd60 bd60 s  mov m,b ;fcb(modnum)=mod#
+bd61 bd61 d cd51ba
+bd61 bd61 u 03 01
+bd61 bd61 s 		call open ;is the file present?
+bd64 bd64 d 3a45b5
+bd64 bd64 u 03 01
+bd64 bd64 s 		lda lret!
+bd67 bd67 d 3c
+bd67 bd67 u 01 01
+bd67 bd67 s  inr a!
+bd68 bd68 d c27fbd
+bd68 bd68 u 03 01
+bd68 bd68 s  jnz seekok ;open successful?
+bd6b bd6b s 		;cannot open the file, read mode?
+bd6b bd6b d c1
+bd6b bd6b u 01 01
+bd6b bd6b s 		pop b ;r/w flag to c (=0ffh if read)
+bd6c bd6c d c5
+bd6c bd6c u 01 01
+bd6c bd6c s 		push b ;everyone expects this item stacked
+bd6d bd6d d 2e04
+bd6d bd6d u 02 01
+bd6d bd6d s 		mvi l,4 ;seek to unwritten extent #4
+bd6f bd6f d 0c
+bd6f bd6f u 01 01
+bd6f bd6f s 		inr c ;becomes 00 if read operation
+bd70 bd70 d ca84bd
+bd70 bd70 u 03 01
+bd70 bd70 s 		jz badseek ;skip to error if read operation
+bd73 bd73 s 		;write operation, make new extent
+bd73 bd73 d cd24bb
+bd73 bd73 u 03 01
+bd73 bd73 s 		call make
+bd76 bd76 d 2e05
+bd76 bd76 u 02 01
+bd76 bd76 s 		mvi l,5 ;cannot create new extent #5
+bd78 bd78 d 3a45b5
+bd78 bd78 u 03 01
+bd78 bd78 s 		lda lret!
+bd7b bd7b d 3c
+bd7b bd7b u 01 01
+bd7b bd7b s  inr a!
+bd7c bd7c d ca84bd
+bd7c bd7c u 03 01
+bd7c bd7c s  jz badseek ;no dir space
+bd7f bd7f s 		;file make operation successful
+bd7f bd7f s 	seekok:
+bd7f bd7f d c1
+bd7f bd7f u 01 01
+bd7f bd7f s 		pop b ;discard r/w flag
+bd80 bd80 d af
+bd80 bd80 u 01 01
+bd80 bd80 s 		xra a!
+bd81 bd81 d c301b5
+bd81 bd81 u 03 01
+bd81 bd81 s  jmp sta$ret 	;with zero set	
+bd84 bd84 s 	badseek:
+bd84 bd84 s 		;fcb no longer contains a valid fcb, mark
+bd84 bd84 s 		;with 1100$000b in modnum field so that it
+bd84 bd84 s 		;appears as overflow with file write flag set
+bd84 bd84 d e5
+bd84 bd84 u 01 01
+bd84 bd84 s 		push h ;save error flag
+bd85 bd85 d cd69b7
+bd85 bd85 u 03 01
+bd85 bd85 s 		call getmodnum ;HL = .modnum
+bd88 bd88 d 36c0
+bd88 bd88 u 02 01
+bd88 bd88 s 		mvi m,1100$0000b
+bd8a bd8a d e1
+bd8a bd8a u 01 01
+bd8a bd8a s 		pop h ;and drop through
+bd8b bd8b s 	seekerr:
+bd8b bd8b d c1
+bd8b bd8b u 01 01
+bd8b bd8b s 		pop b ;discard r/w flag
+bd8c bd8c d 7d
+bd8c bd8c u 01 01
+bd8c bd8c s 		mov a,l!
+bd8d bd8d d 3245b5
+bd8d bd8d u 03 01
+bd8d bd8d s  sta lret ;lret=#, nonzero
+bd90 bd90 s 		;setfwf returns non-zero accumulator for err
+bd90 bd90 d c378b7
+bd90 bd90 u 03 01
+bd90 bd90 s 		jmp setfwf ;flag set, so subsequent close ok
+bd93 bd93 s 		;ret
+bd93 bd93 s ;
+bd93 bd93 s randiskread:
+bd93 bd93 s 	;random disk read operation
+bd93 bd93 d 0eff
+bd93 bd93 u 02 01
+bd93 bd93 s 	mvi c,true ;marked as read operation
+bd95 bd95 d cd03bd
+bd95 bd95 u 03 01
+bd95 bd95 s 	call rseek
+bd98 bd98 d ccc1bb
+bd98 bd98 u 03 01
+bd98 bd98 s 	cz diskread ;if seek successful
+bd9b bd9b d c9
+bd9b bd9b u 01 01
+bd9b bd9b s 	ret
+bd9c bd9c s ;
+bd9c bd9c s randiskwrite:
+bd9c bd9c s 	;random disk write operation
+bd9c bd9c d 0e00
+bd9c bd9c u 02 01
+bd9c bd9c s 	mvi c,false ;marked as write operation
+bd9e bd9e d cd03bd
+bd9e bd9e u 03 01
+bd9e bd9e s 	call rseek
+bda1 bda1 d cc03bc
+bda1 bda1 u 03 01
+bda1 bda1 s 	cz diskwrite ;if seek successful
+bda4 bda4 d c9
+bda4 bda4 u 01 01
+bda4 bda4 s 	ret
+bda5 bda5 s ;
+bda5 bda5 s compute$rr:
+bda5 bda5 s 	;compute random record position for getfilesize/setrandom
+bda5 bda5 d eb
+bda5 bda5 u 01 01
+bda5 bda5 s 	xchg!
+bda6 bda6 d 19
+bda6 bda6 u 01 01
+bda6 bda6 s  dad d
+bda7 bda7 s 	;DE=.buf(dptr) or .fcb(0), HL = .f(nxtrec/reccnt)
+bda7 bda7 d 4e
+bda7 bda7 u 01 01
+bda7 bda7 s 	mov c,m!
+bda8 bda8 d 0600
+bda8 bda8 u 02 01
+bda8 bda8 s  mvi b,0 ;BC = 0000 0000 ?rrr rrrr
+bdaa bdaa d 210c00
+bdaa bdaa u 03 01
+bdaa bdaa s 	lxi h,extnum!
+bdad bdad d 19
+bdad bdad u 01 01
+bdad bdad s  dad d!
+bdae bdae d 7e
+bdae bdae u 01 01
+bdae bdae s  mov a,m!
+bdaf bdaf d 0f
+bdaf bdaf u 01 01
+bdaf bdaf s  rrc!
+bdb0 bdb0 d e680
+bdb0 bdb0 u 02 01
+bdb0 bdb0 s  ani 80h ;A=e000 0000
+bdb2 bdb2 d 81
+bdb2 bdb2 u 01 01
+bdb2 bdb2 s 	add c!
+bdb3 bdb3 d 4f
+bdb3 bdb3 u 01 01
+bdb3 bdb3 s  mov c,a!
+bdb4 bdb4 d 3e00
+bdb4 bdb4 u 02 01
+bdb4 bdb4 s  mvi a,0!
+bdb6 bdb6 d 88
+bdb6 bdb6 u 01 01
+bdb6 bdb6 s  adc b!
+bdb7 bdb7 d 47
+bdb7 bdb7 u 01 01
+bdb7 bdb7 s  mov b,a
+bdb8 bdb8 s 	;BC = 0000 000? errrr rrrr
+bdb8 bdb8 d 7e
+bdb8 bdb8 u 01 01
+bdb8 bdb8 s 	mov a,m!
+bdb9 bdb9 d 0f
+bdb9 bdb9 u 01 01
+bdb9 bdb9 s  rrc!
+bdba bdba d e60f
+bdba bdba u 02 01
+bdba bdba s  ani 0fh!
+bdbc bdbc d 80
+bdbc bdbc u 01 01
+bdbc bdbc s  add b!
+bdbd bdbd d 47
+bdbd bdbd u 01 01
+bdbd bdbd s  mov b,a
+bdbe bdbe s 	;BC = 000? eeee errrr rrrr
+bdbe bdbe d 210e00
+bdbe bdbe u 03 01
+bdbe bdbe s 	lxi h,modnum!
+bdc1 bdc1 d 19
+bdc1 bdc1 u 01 01
+bdc1 bdc1 s  dad d!
+bdc2 bdc2 d 7e
+bdc2 bdc2 u 01 01
+bdc2 bdc2 s  mov a,m ;A=XXX? mmmm
+bdc3 bdc3 d 87
+bdc3 bdc3 u 01 01
+bdc3 bdc3 s 	add a!
+bdc4 bdc4 d 87
+bdc4 bdc4 u 01 01
+bdc4 bdc4 s  add a!
+bdc5 bdc5 d 87
+bdc5 bdc5 u 01 01
+bdc5 bdc5 s  add a!
+bdc6 bdc6 d 87
+bdc6 bdc6 u 01 01
+bdc6 bdc6 s  add a ;cy=? A=mmmm 0000
+bdc7 bdc7 d f5
+bdc7 bdc7 u 01 01
+bdc7 bdc7 s 	push psw!
+bdc8 bdc8 d 80
+bdc8 bdc8 u 01 01
+bdc8 bdc8 s  add b!
+bdc9 bdc9 d 47
+bdc9 bdc9 u 01 01
+bdc9 bdc9 s  mov b,a
+bdca bdca s 	;cy=?, BC = mmmm eeee errr rrrr
+bdca bdca d f5
+bdca bdca u 01 01
+bdca bdca s 	push psw ;possible second carry
+bdcb bdcb d e1
+bdcb bdcb u 01 01
+bdcb bdcb s 	pop h ;cy = lsb of L
+bdcc bdcc d 7d
+bdcc bdcc u 01 01
+bdcc bdcc s 	mov a,l ;cy = lsb of A
+bdcd bdcd d e1
+bdcd bdcd u 01 01
+bdcd bdcd s 	pop h ;cy = lsb of L
+bdce bdce d b5
+bdce bdce u 01 01
+bdce bdce s 	ora l ;cy/cy = lsb of A
+bdcf bdcf d e601
+bdcf bdcf u 02 01
+bdcf bdcf s 	ani 1 ;A = 0000 000? possible carry-out
+bdd1 bdd1 d c9
+bdd1 bdd1 u 01 01
+bdd1 bdd1 s 	ret
+bdd2 bdd2 s ;
+bdd2 bdd2 s getfilesize:
+bdd2 bdd2 s 	;compute logical file size for current fcb
+bdd2 bdd2 d 0e0c
+bdd2 bdd2 u 02 01
+bdd2 bdd2 s 	mvi c,extnum
+bdd4 bdd4 d cd18b9
+bdd4 bdd4 u 03 01
+bdd4 bdd4 s 	call search
+bdd7 bdd7 s 	;zero the receiving ranrec field
+bdd7 bdd7 d 2a43b5
+bdd7 bdd7 u 03 01
+bdd7 bdd7 s 	lhld info!
+bdda bdda d 112100
+bdda bdda u 03 01
+bdda bdda s  lxi d,ranrec!
+bddd bddd d 19
+bddd bddd u 01 01
+bddd bddd s  dad d!
+bdde bdde d e5
+bdde bdde u 01 01
+bdde bdde s  push h ;save position
+bddf bddf d 72
+bddf bddf u 01 01
+bddf bddf s 	mov m,d!
+bde0 bde0 d 23
+bde0 bde0 u 01 01
+bde0 bde0 s  inx h!
+bde1 bde1 d 72
+bde1 bde1 u 01 01
+bde1 bde1 s  mov m,d!
+bde2 bde2 d 23
+bde2 bde2 u 01 01
+bde2 bde2 s  inx h!
+bde3 bde3 d 72
+bde3 bde3 u 01 01
+bde3 bde3 s  mov m,d;=00 00 00
+bde4 bde4 s 	getsize:
+bde4 bde4 d cdf5b7
+bde4 bde4 u 03 01
+bde4 bde4 s 		call end$of$dir
+bde7 bde7 d ca0cbe
+bde7 bde7 u 03 01
+bde7 bde7 s 		jz setsize
+bdea bdea s 		;current fcb addressed by dptr
+bdea bdea d cd5eb7
+bdea bdea u 03 01
+bdea bdea s 		call getdptra!
+bded bded d 110f00
+bded bded u 03 01
+bded bded s  lxi d,reccnt ;ready for compute size
+bdf0 bdf0 d cda5bd
+bdf0 bdf0 u 03 01
+bdf0 bdf0 s 		call compute$rr
+bdf3 bdf3 s 		;A=0000 000? BC = mmmm eeee errr rrrr
+bdf3 bdf3 s 		;compare with memory, larger?
+bdf3 bdf3 d e1
+bdf3 bdf3 u 01 01
+bdf3 bdf3 s 		pop h!
+bdf4 bdf4 d e5
+bdf4 bdf4 u 01 01
+bdf4 bdf4 s  push h ;recall, replace .fcb(ranrec)
+bdf5 bdf5 d 5f
+bdf5 bdf5 u 01 01
+bdf5 bdf5 s 		mov e,a ;save cy
+bdf6 bdf6 d 79
+bdf6 bdf6 u 01 01
+bdf6 bdf6 s 		mov a,c!
+bdf7 bdf7 d 96
+bdf7 bdf7 u 01 01
+bdf7 bdf7 s  sub m!
+bdf8 bdf8 d 23
+bdf8 bdf8 u 01 01
+bdf8 bdf8 s  inx h ;ls byte
+bdf9 bdf9 d 78
+bdf9 bdf9 u 01 01
+bdf9 bdf9 s 		mov a,b!
+bdfa bdfa d 9e
+bdfa bdfa u 01 01
+bdfa bdfa s  sbb m!
+bdfb bdfb d 23
+bdfb bdfb u 01 01
+bdfb bdfb s  inx h ;middle byte
+bdfc bdfc d 7b
+bdfc bdfc u 01 01
+bdfc bdfc s 		mov a,e!
+bdfd bdfd d 9e
+bdfd bdfd u 01 01
+bdfd bdfd s  sbb m ;carry if .fcb(ranrec) > directory
+bdfe bdfe d da06be
+bdfe bdfe u 03 01
+bdfe bdfe s 		jc getnextsize ;for another try
+be01 be01 s 		;fcb is less or equal, fill from directory
+be01 be01 d 73
+be01 be01 u 01 01
+be01 be01 s 		mov m,e!
+be02 be02 d 2b
+be02 be02 u 01 01
+be02 be02 s  dcx h!
+be03 be03 d 70
+be03 be03 u 01 01
+be03 be03 s  mov m,b!
+be04 be04 d 2b
+be04 be04 u 01 01
+be04 be04 s  dcx h!
+be05 be05 d 71
+be05 be05 u 01 01
+be05 be05 s  mov m,c
+be06 be06 s 	getnextsize:
+be06 be06 d cd2db9
+be06 be06 u 03 01
+be06 be06 s 		call searchn
+be09 be09 d c3e4bd
+be09 be09 u 03 01
+be09 be09 s 		jmp getsize
+be0c be0c s 	setsize:
+be0c be0c d e1
+be0c be0c u 01 01
+be0c be0c s 	pop h ;discard .fcb(ranrec)
+be0d be0d d c9
+be0d be0d u 01 01
+be0d be0d s 	ret
+be0e be0e s ;
+be0e be0e s setrandom:
+be0e be0e s 	;set random record from the current file control block
+be0e be0e d 2a43b5
+be0e be0e u 03 01
+be0e be0e s 	lhld info!
+be11 be11 d 112000
+be11 be11 u 03 01
+be11 be11 s  lxi d,nxtrec ;ready params for computesize
+be14 be14 d cda5bd
+be14 be14 u 03 01
+be14 be14 s 	call compute$rr ;DE=info, A=cy, BC=mmmm eeee errr rrrr
+be17 be17 d 212100
+be17 be17 u 03 01
+be17 be17 s 	lxi h,ranrec!
+be1a be1a d 19
+be1a be1a u 01 01
+be1a be1a s  dad d ;HL = .fcb(ranrec)
+be1b be1b d 71
+be1b be1b u 01 01
+be1b be1b s 	mov m,c!
+be1c be1c d 23
+be1c be1c u 01 01
+be1c be1c s  inx h!
+be1d be1d d 70
+be1d be1d u 01 01
+be1d be1d s  mov m,b!
+be1e be1e d 23
+be1e be1e u 01 01
+be1e be1e s  inx h!
+be1f be1f d 77
+be1f be1f u 01 01
+be1f be1f s  mov m,a ;to ranrec
+be20 be20 d c9
+be20 be20 u 01 01
+be20 be20 s 	ret
+be21 be21 s ;
+be21 be21 s select:
+be21 be21 s 	;select disk info for subsequent input or output ops
+be21 be21 d 2aafbf
+be21 be21 u 03 01
+be21 be21 s 	lhld dlog!
+be24 be24 d 3a42b5
+be24 be24 u 03 01
+be24 be24 s  lda curdsk!
+be27 be27 d 4f
+be27 be27 u 01 01
+be27 be27 s  mov c,a!
+be28 be28 d cdeab6
+be28 be28 u 03 01
+be28 be28 s  call hlrotr
+be2b be2b d e5
+be2b be2b u 01 01
+be2b be2b s 	push h!
+be2c be2c d eb
+be2c be2c u 01 01
+be2c be2c s  xchg ;save it for test below, send to seldsk
+be2d be2d d cd59b5
+be2d be2d u 03 01
+be2d be2d s 	call selectdisk!
+be30 be30 d e1
+be30 be30 u 01 01
+be30 be30 s  pop h ;recall dlog vector
+be31 be31 d cc47b5
+be31 be31 u 03 01
+be31 be31 s 	cz sel$error ;returns true if select ok
+be34 be34 s 	;is the disk logged in?
+be34 be34 d 7d
+be34 be34 u 01 01
+be34 be34 s 	mov a,l!
+be35 be35 d 1f
+be35 be35 u 01 01
+be35 be35 s  rar!
+be36 be36 d d8
+be36 be36 u 01 01
+be36 be36 s  rc ;return if bit is set
+be37 be37 s 	;disk not logged in, set bit and initialize
+be37 be37 d 2aafbf
+be37 be37 u 03 01
+be37 be37 s 	lhld dlog!
+be3a be3a d 4d
+be3a be3a u 01 01
+be3a be3a s  mov c,l!
+be3b be3b d 44
+be3b be3b u 01 01
+be3b be3b s  mov b,h ;call ready
+be3c be3c d cd0bb7
+be3c be3c u 03 01
+be3c be3c s 	call set$cdisk!
+be3f be3f d 22afbf
+be3f be3f u 03 01
+be3f be3f s  shld dlog ;dlog=set$cdisk(dlog)
+be42 be42 d c3a3b8
+be42 be42 u 03 01
+be42 be42 s 	jmp initialize
+be45 be45 s 	;ret
+be45 be45 s ;
+be45 be45 s curselect:
+be45 be45 d 3ad6bf
+be45 be45 u 03 01
+be45 be45 s 	lda linfo!
+be48 be48 d 2142b5
+be48 be48 u 03 01
+be48 be48 s  lxi h,curdsk!
+be4b be4b d be
+be4b be4b u 01 01
+be4b be4b s  cmp m!
+be4c be4c d c8
+be4c be4c u 01 01
+be4c be4c s  rz ;skip if linfo=curdsk
+be4d be4d d 77
+be4d be4d u 01 01
+be4d be4d s 	mov m,a ;curdsk=info
+be4e be4e d c321be
+be4e be4e u 03 01
+be4e be4e s 	jmp select
+be51 be51 s 	;ret
+be51 be51 s ;
+be51 be51 s reselect:
+be51 be51 s 	;check current fcb to see if reselection necessary
+be51 be51 d 3eff
+be51 be51 u 02 01
+be51 be51 s 	mvi a,true!
+be53 be53 d 32debf
+be53 be53 u 03 01
+be53 be53 s  sta resel ;mark possible reselect
+be56 be56 d 2a43b5
+be56 be56 u 03 01
+be56 be56 s 	lhld info!
+be59 be59 d 7e
+be59 be59 u 01 01
+be59 be59 s  mov a,m ;drive select code
+be5a be5a d e61f
+be5a be5a u 02 01
+be5a be5a s 	ani 1$1111b ;non zero is auto drive select
+be5c be5c d 3d
+be5c be5c u 01 01
+be5c be5c s 	dcr a ;drive code normalized to 0..30, or 255
+be5d be5d d 32d6bf
+be5d be5d u 03 01
+be5d be5d s 	sta linfo ;save drive code
+be60 be60 d fe1e
+be60 be60 u 02 01
+be60 be60 s 	cpi 30!
+be62 be62 d d275be
+be62 be62 u 03 01
+be62 be62 s  jnc noselect
+be65 be65 s 		;auto select function, save curdsk
+be65 be65 d 3a42b5
+be65 be65 u 03 01
+be65 be65 s 		lda curdsk!
+be68 be68 d 32dfbf
+be68 be68 u 03 01
+be68 be68 s  sta olddsk ;olddsk=curdsk
+be6b be6b d 7e
+be6b be6b u 01 01
+be6b be6b s 		mov a,m!
+be6c be6c d 32e0bf
+be6c be6c u 03 01
+be6c be6c s  sta fcbdsk ;save drive code
+be6f be6f d e6e0
+be6f be6f u 02 01
+be6f be6f s 		ani 1110$0000b!
+be71 be71 d 77
+be71 be71 u 01 01
+be71 be71 s  mov m,a ;preserve hi bits
+be72 be72 d cd45be
+be72 be72 u 03 01
+be72 be72 s 		call curselect
+be75 be75 s 	noselect:
+be75 be75 s 		;set user code
+be75 be75 d 3a41b5
+be75 be75 u 03 01
+be75 be75 s 		lda usrcode ;0...31
+be78 be78 d 2a43b5
+be78 be78 u 03 01
+be78 be78 s 		lhld info!
+be7b be7b d b6
+be7b be7b u 01 01
+be7b be7b s  ora m!
+be7c be7c d 77
+be7c be7c u 01 01
+be7c be7c s  mov m,a
+be7d be7d d c9
+be7d be7d u 01 01
+be7d be7d s 		ret
+be7e be7e s ;
+be7e be7e s ;	individual function handlers
+be7e be7e s func12:
+be7e be7e s 	;return version number
+be7e be7e d 3e22
+be7e be7e u 02 01
+be7e be7e s 	mvi a,dvers!
+be80 be80 d c301b5
+be80 be80 u 03 01
+be80 be80 s  jmp sta$ret ;lret = dvers (high = 00)
+be83 be83 s ;	ret ;jmp goback
+be83 be83 s ;
+be83 be83 s func13:
+be83 be83 s 	;reset disk system - initialize to disk 0
+be83 be83 d 210000
+be83 be83 u 03 01
+be83 be83 s 	lxi h,0!
+be86 be86 d 22adbf
+be86 be86 u 03 01
+be86 be86 s  shld rodsk!
+be89 be89 d 22afbf
+be89 be89 u 03 01
+be89 be89 s  shld dlog
+be8c be8c d af
+be8c be8c u 01 01
+be8c be8c s 	xra a!
+be8d be8d d 3242b5
+be8d be8d u 03 01
+be8d be8d s  sta curdsk ;note that usrcode remains unchanged
+be90 be90 d 218000
+be90 be90 u 03 01
+be90 be90 s 	lxi h,tbuff!
+be93 be93 d 22b1bf
+be93 be93 u 03 01
+be93 be93 s  shld dmaad ;dmaad = tbuff
+be96 be96 d cddab7
+be96 be96 u 03 01
+be96 be96 s         call setdata ;to data dma address
+be99 be99 d c321be
+be99 be99 u 03 01
+be99 be99 s 	jmp select
+be9c be9c s 	;ret ;jmp goback
+be9c be9c s ;
+be9c be9c s func14:	equ	curselect			;
+be9c be9c s 	;select disk info
+be9c be9c s 	;ret ;jmp goback
+be9c be9c s ;
+be9c be9c s func15:
+be9c be9c s 	;open file
+be9c be9c d cd72b7
+be9c be9c u 03 01
+be9c be9c s 	call clrmodnum ;clear the module number
+be9f be9f d cd51be
+be9f be9f u 03 01
+be9f be9f s 	call reselect
+bea2 bea2 d c351ba
+bea2 bea2 u 03 01
+bea2 bea2 s 	jmp open
+bea5 bea5 s 	;ret ;jmp goback
+bea5 bea5 s ;
+bea5 bea5 s func16:
+bea5 bea5 s 	;close file
+bea5 bea5 d cd51be
+bea5 bea5 u 03 01
+bea5 bea5 s 	call reselect
+bea8 bea8 d c3a2ba
+bea8 bea8 u 03 01
+bea8 bea8 s 	jmp close
+beab beab s 	;ret ;jmp goback
+beab beab s ;
+beab beab s func17:
+beab beab s 	;search for first occurrence of a file
+beab beab d 0e00
+beab beab u 02 01
+beab beab s 	mvi c,0 ;length assuming '?' true
+bead bead d eb
+bead bead u 01 01
+bead bead s 	xchg		;was lhld info		
+beae beae d 7e
+beae beae u 01 01
+beae beae s 	mov a,m!
+beaf beaf d fe3f
+beaf beaf u 02 01
+beaf beaf s  cpi '?' ;no reselect if ?
+beb1 beb1 d cac2be
+beb1 beb1 u 03 01
+beb1 beb1 s 	jz qselect ;skip reselect if so
+beb4 beb4 s 		;normal search
+beb4 beb4 d cda6b6
+beb4 beb4 u 03 01
+beb4 beb4 s 		call getexta!
+beb7 beb7 d 7e
+beb7 beb7 u 01 01
+beb7 beb7 s  mov a,m!
+beb8 beb8 d fe3f
+beb8 beb8 u 02 01
+beb8 beb8 s  cpi '?'	;	
+beba beba d c472b7
+beba beba u 03 01
+beba beba s 		cnz clrmodnum ;module number zeroed
+bebd bebd d cd51be
+bebd bebd u 03 01
+bebd bebd s 		call reselect
+bec0 bec0 d 0e0f
+bec0 bec0 u 02 01
+bec0 bec0 s 		mvi c,namlen
+bec2 bec2 s 	qselect:
+bec2 bec2 d cd18b9
+bec2 bec2 u 03 01
+bec2 bec2 s 	call search
+bec5 bec5 d c3e9b7
+bec5 bec5 u 03 01
+bec5 bec5 s 	jmp dir$to$user ;copy directory entry to user
+bec8 bec8 s 	;ret ;jmp goback
+bec8 bec8 s ;
+bec8 bec8 s func18:
+bec8 bec8 s 	;search for next occurrence of a file name
+bec8 bec8 d 2ad9bf
+bec8 bec8 u 03 01
+bec8 bec8 s 	lhld searcha!
+becb becb d 2243b5
+becb becb u 03 01
+becb becb s  shld info
+bece bece d cd51be
+bece bece u 03 01
+bece bece s 	call reselect!
+bed1 bed1 d cd2db9
+bed1 bed1 u 03 01
+bed1 bed1 s  call searchn
+bed4 bed4 d c3e9b7
+bed4 bed4 u 03 01
+bed4 bed4 s 	jmp dir$to$user ;copy directory entry to user
+bed7 bed7 s 	;ret ;jmp goback
+bed7 bed7 s ;
+bed7 bed7 s func19:
+bed7 bed7 s 	;delete a file
+bed7 bed7 d cd51be
+bed7 bed7 u 03 01
+bed7 bed7 s 	call reselect
+beda beda d cd9cb9
+beda beda u 03 01
+beda beda s 	call delete
+bedd bedd d c301b9
+bedd bedd u 03 01
+bedd bedd s 	jmp copy$dirloc
+bee0 bee0 s 	;ret ;jmp goback
+bee0 bee0 s ;
+bee0 bee0 s func20:
+bee0 bee0 s 	;read a file
+bee0 bee0 d cd51be
+bee0 bee0 u 03 01
+bee0 bee0 s 	call reselect
+bee3 bee3 d c3bcbb
+bee3 bee3 u 03 01
+bee3 bee3 s 	jmp seqdiskread				;
+bee6 bee6 s 	 ;jmp goback
+bee6 bee6 s ;
+bee6 bee6 s func21:
+bee6 bee6 s 	;write a file
+bee6 bee6 d cd51be
+bee6 bee6 u 03 01
+bee6 bee6 s 	call reselect
+bee9 bee9 d c3febb
+bee9 bee9 u 03 01
+bee9 bee9 s 	jmp seqdiskwrite			;
+beec beec s 	 ;jmp goback
+beec beec s ;
+beec beec s func22:
+beec beec s 	;make a file
+beec beec d cd72b7
+beec beec u 03 01
+beec beec s 	call clrmodnum
+beef beef d cd51be
+beef beef u 03 01
+beef beef s 	call reselect
+bef2 bef2 d c324bb
+bef2 bef2 u 03 01
+bef2 bef2 s 	jmp make
+bef5 bef5 s 	;ret ;jmp goback
+bef5 bef5 s ;
+bef5 bef5 s func23:
+bef5 bef5 s 	;rename a file
+bef5 bef5 d cd51be
+bef5 bef5 u 03 01
+bef5 bef5 s 	call reselect
+bef8 bef8 d cd16ba
+bef8 bef8 u 03 01
+bef8 bef8 s 	call rename
+befb befb d c301b9
+befb befb u 03 01
+befb befb s 	jmp copy$dirloc
+befe befe s 	;ret ;jmp goback
+befe befe s ;
+befe befe s func24:
+befe befe s 	;return the login vector
+befe befe d 2aafbf
+befe befe u 03 01
+befe befe s 	lhld dlog!
+bf01 bf01 d c329bf
+bf01 bf01 u 03 01
+bf01 bf01 s  jmp sthl$ret			;
+bf04 bf04 s ;	ret ;jmp goback
+bf04 bf04 s ;
+bf04 bf04 s func25:
+bf04 bf04 s 	;return selected disk number
+bf04 bf04 d 3a42b5
+bf04 bf04 u 03 01
+bf04 bf04 s 	lda curdsk!
+bf07 bf07 d c301b5
+bf07 bf07 u 03 01
+bf07 bf07 s  jmp sta$ret			;
+bf0a bf0a s ;	ret ;jmp goback
+bf0a bf0a s ;
+bf0a bf0a s func26:
+bf0a bf0a s 	;set the subsequent dma address to info
+bf0a bf0a d eb
+bf0a bf0a u 01 01
+bf0a bf0a s 	xchg		;was lhld info	
+bf0b bf0b d 22b1bf
+bf0b bf0b u 03 01
+bf0b bf0b s 	shld dmaad ;dmaad = info
+bf0e bf0e d c3dab7
+bf0e bf0e u 03 01
+bf0e bf0e s         jmp setdata ;to data dma address
+bf11 bf11 s 	;ret ;jmp goback
+bf11 bf11 s ;
+bf11 bf11 s func27:
+bf11 bf11 s 	;return the login vector address
+bf11 bf11 d 2abfbf
+bf11 bf11 u 03 01
+bf11 bf11 s 	lhld alloca!
+bf14 bf14 d c329bf
+bf14 bf14 u 03 01
+bf14 bf14 s  jmp sthl$ret		;
+bf17 bf17 s ;	ret ;jmp goback
+bf17 bf17 s ;
+bf17 bf17 s func28:	equ	set$ro				;
+bf17 bf17 s 	;write protect current disk
+bf17 bf17 s 	;ret ;jmp goback
+bf17 bf17 s ;
+bf17 bf17 s func29:
+bf17 bf17 s 	;return r/o bit vector
+bf17 bf17 d 2aadbf
+bf17 bf17 u 03 01
+bf17 bf17 s 	lhld rodsk!
+bf1a bf1a d c329bf
+bf1a bf1a u 03 01
+bf1a bf1a s  jmp sthl$ret		;
+bf1d bf1d s ;	ret ;jmp goback
+bf1d bf1d s ;
+bf1d bf1d s func30:
+bf1d bf1d s 	;set file indicators
+bf1d bf1d d cd51be
+bf1d bf1d u 03 01
+bf1d bf1d s 	call reselect
+bf20 bf20 d cd3bba
+bf20 bf20 u 03 01
+bf20 bf20 s 	call indicators
+bf23 bf23 d c301b9
+bf23 bf23 u 03 01
+bf23 bf23 s 	jmp copy$dirloc ;lret=dirloc
+bf26 bf26 s 	;ret ;jmp goback
+bf26 bf26 s ;
+bf26 bf26 s func31:
+bf26 bf26 s 	;return address of disk parameter block
+bf26 bf26 d 2abbbf
+bf26 bf26 u 03 01
+bf26 bf26 s 	lhld dpbaddr
+bf29 bf29 s sthl$ret:
+bf29 bf29 d 2245b5
+bf29 bf29 u 03 01
+bf29 bf29 s  	shld aret
+bf2c bf2c d c9
+bf2c bf2c u 01 01
+bf2c bf2c s 	ret ;jmp goback
+bf2d bf2d s func32:
+bf2d bf2d s 	;set user code
+bf2d bf2d d 3ad6bf
+bf2d bf2d u 03 01
+bf2d bf2d s         lda linfo!
+bf30 bf30 d feff
+bf30 bf30 u 02 01
+bf30 bf30 s  cpi 0ffh!
+bf32 bf32 d c23bbf
+bf32 bf32 u 03 01
+bf32 bf32 s  jnz setusrcode
+bf35 bf35 s 		;interrogate user code instead
+bf35 bf35 d 3a41b5
+bf35 bf35 u 03 01
+bf35 bf35 s 		lda usrcode!
+bf38 bf38 d c301b5
+bf38 bf38 u 03 01
+bf38 bf38 s  jmp sta$ret ;lret=usrcode	
+bf3b bf3b s ;		ret ;jmp goback
+bf3b bf3b s 	setusrcode:
+bf3b bf3b d e61f
+bf3b bf3b u 02 01
+bf3b bf3b s 		ani 1fh!
+bf3d bf3d d 3241b5
+bf3d bf3d u 03 01
+bf3d bf3d s  sta usrcode
+bf40 bf40 d c9
+bf40 bf40 u 01 01
+bf40 bf40 s 		ret ;jmp goback
+bf41 bf41 s ;
+bf41 bf41 s func33:
+bf41 bf41 s 	;random disk read operation
+bf41 bf41 d cd51be
+bf41 bf41 u 03 01
+bf41 bf41 s 	call reselect
+bf44 bf44 d c393bd
+bf44 bf44 u 03 01
+bf44 bf44 s 	jmp randiskread ;to perform the disk read
+bf47 bf47 s 	;ret ;jmp goback
+bf47 bf47 s ;
+bf47 bf47 s func34:
+bf47 bf47 s 	;random disk write operation
+bf47 bf47 d cd51be
+bf47 bf47 u 03 01
+bf47 bf47 s 	call reselect
+bf4a bf4a d c39cbd
+bf4a bf4a u 03 01
+bf4a bf4a s 	jmp randiskwrite ;to perform the disk write
+bf4d bf4d s 	;ret ;jmp goback
+bf4d bf4d s ;
+bf4d bf4d s func35:
+bf4d bf4d s 	;return file size (0-65536)
+bf4d bf4d d cd51be
+bf4d bf4d u 03 01
+bf4d bf4d s 	call reselect
+bf50 bf50 d c3d2bd
+bf50 bf50 u 03 01
+bf50 bf50 s 	jmp getfilesize
+bf53 bf53 s 	;ret ;jmp goback
+bf53 bf53 s ;
+bf53 bf53 s func36:	equ	setrandom			;
+bf53 bf53 s 	;set random record
+bf53 bf53 s 	;ret ;jmp goback
+bf53 bf53 s func37:
+bf53 bf53 s ;
+bf53 bf53 d 2a43b5
+bf53 bf53 u 03 01
+bf53 bf53 s 	lhld	info
+bf56 bf56 d 7d
+bf56 bf56 u 01 01
+bf56 bf56 s 	mov	a,l!
+bf57 bf57 d 2f
+bf57 bf57 u 01 01
+bf57 bf57 s  cma!
+bf58 bf58 d 5f
+bf58 bf58 u 01 01
+bf58 bf58 s  mov e,a!
+bf59 bf59 d 7c
+bf59 bf59 u 01 01
+bf59 bf59 s  mov a,h!
+bf5a bf5a d 2f
+bf5a bf5a u 01 01
+bf5a bf5a s  cma
+bf5b bf5b d 2aafbf
+bf5b bf5b u 03 01
+bf5b bf5b s 	lhld dlog!
+bf5e bf5e d a4
+bf5e bf5e u 01 01
+bf5e bf5e s  ana h!
+bf5f bf5f d 57
+bf5f bf5f u 01 01
+bf5f bf5f s  mov d,a!
+bf60 bf60 d 7d
+bf60 bf60 u 01 01
+bf60 bf60 s  mov a,l!
+bf61 bf61 d a3
+bf61 bf61 u 01 01
+bf61 bf61 s  ana e
+bf62 bf62 d 5f
+bf62 bf62 u 01 01
+bf62 bf62 s 	mov e,a!
+bf63 bf63 d 2aadbf
+bf63 bf63 u 03 01
+bf63 bf63 s  lhld rodsk!
+bf66 bf66 d eb
+bf66 bf66 u 01 01
+bf66 bf66 s  xchg!
+bf67 bf67 d 22afbf
+bf67 bf67 u 03 01
+bf67 bf67 s  shld dlog
+bf6a bf6a d 7d
+bf6a bf6a u 01 01
+bf6a bf6a s 	mov a,l!
+bf6b bf6b d a3
+bf6b bf6b u 01 01
+bf6b bf6b s  ana e!
+bf6c bf6c d 6f
+bf6c bf6c u 01 01
+bf6c bf6c s  mov l,a
+bf6d bf6d d 7c
+bf6d bf6d u 01 01
+bf6d bf6d s 	mov a,h!
+bf6e bf6e d a2
+bf6e bf6e u 01 01
+bf6e bf6e s  ana d!
+bf6f bf6f d 67
+bf6f bf6f u 01 01
+bf6f bf6f s  mov h,a
+bf70 bf70 d 22adbf
+bf70 bf70 u 03 01
+bf70 bf70 s 	shld rodsk!
+bf73 bf73 d c9
+bf73 bf73 u 01 01
+bf73 bf73 s  ret
+bf74 bf74 s ;
+bf74 bf74 s ;
+bf74 bf74 s goback:
+bf74 bf74 s 	;arrive here at end of processing to return to user
+bf74 bf74 d 3adebf
+bf74 bf74 u 03 01
+bf74 bf74 s 	lda resel!
+bf77 bf77 d b7
+bf77 bf77 u 01 01
+bf77 bf77 s  ora a!
+bf78 bf78 d ca91bf
+bf78 bf78 u 03 01
+bf78 bf78 s  jz retmon
+bf7b bf7b s 		;reselection may have taken place
+bf7b bf7b d 2a43b5
+bf7b bf7b u 03 01
+bf7b bf7b s 		lhld info!
+bf7e bf7e d 3600
+bf7e bf7e u 02 01
+bf7e bf7e s  mvi m,0 ;fcb(0)=0
+bf80 bf80 d 3ae0bf
+bf80 bf80 u 03 01
+bf80 bf80 s 		lda fcbdsk!
+bf83 bf83 d b7
+bf83 bf83 u 01 01
+bf83 bf83 s  ora a!
+bf84 bf84 d ca91bf
+bf84 bf84 u 03 01
+bf84 bf84 s  jz retmon
+bf87 bf87 s 		;restore disk number
+bf87 bf87 d 77
+bf87 bf87 u 01 01
+bf87 bf87 s 		mov m,a ;fcb(0)=fcbdsk
+bf88 bf88 d 3adfbf
+bf88 bf88 u 03 01
+bf88 bf88 s 		lda olddsk!
+bf8b bf8b d 32d6bf
+bf8b bf8b u 03 01
+bf8b bf8b s  sta linfo!
+bf8e bf8e d cd45be
+bf8e bf8e u 03 01
+bf8e bf8e s  call curselect
+bf91 bf91 s ;
+bf91 bf91 s ;	return from the disk monitor
+bf91 bf91 s retmon:
+bf91 bf91 d 2a0fb5
+bf91 bf91 u 03 01
+bf91 bf91 s 	lhld entsp!
+bf94 bf94 d f9
+bf94 bf94 u 01 01
+bf94 bf94 s  sphl ;user stack restored
+bf95 bf95 d 2a45b5
+bf95 bf95 u 03 01
+bf95 bf95 s 	lhld aret!
+bf98 bf98 d 7d
+bf98 bf98 u 01 01
+bf98 bf98 s  mov a,l!
+bf99 bf99 d 44
+bf99 bf99 u 01 01
+bf99 bf99 s  mov b,h ;BA = HL = aret
+bf9a bf9a d c9
+bf9a bf9a u 01 01
+bf9a bf9a s 	ret
+bf9b bf9b s func38:	equ	func$ret
+bf9b bf9b s func39	equ	func$ret
+bf9b bf9b s func40:
+bf9b bf9b s 	;random disk write with zero fill of unallocated block
+bf9b bf9b d cd51be
+bf9b bf9b u 03 01
+bf9b bf9b s 	call reselect
+bf9e bf9e d 3e02
+bf9e bf9e u 02 01
+bf9e bf9e s 	mvi a,2!
+bfa0 bfa0 d 32d5bf
+bfa0 bfa0 u 03 01
+bfa0 bfa0 s  sta seqio
+bfa3 bfa3 d 0e00
+bfa3 bfa3 u 02 01
+bfa3 bfa3 s 	mvi	c,false
+bfa5 bfa5 d cd07bd
+bfa5 bfa5 u 03 01
+bfa5 bfa5 s 	call	rseek1
+bfa8 bfa8 d cc03bc
+bfa8 bfa8 u 03 01
+bfa8 bfa8 s 	cz	diskwrite	;if seek successful
+bfab bfab d c9
+bfab bfab u 01 01
+bfab bfab s 	ret
+bfac bfac s ;
+bfac bfac s ;
+bfac bfac s ;	data areas
+bfac bfac s ;
+bfac bfac s ;	initialized data
+bfac bfac d e5
+bfac bfac u 01 02
+bfac bfac s efcb:	db	empty	;0e5=available dir entry
+bfad bfad d 0000
+bfad bfad u 02 02
+bfad bfad s rodsk:	dw	0	;read only disk vector
+bfaf bfaf d 0000
+bfaf bfaf u 02 02
+bfaf bfaf s dlog:	dw	0	;logged-in disks
+bfb1 bfb1 d 8000
+bfb1 bfb1 u 02 02
+bfb1 bfb1 s dmaad:	dw	tbuff	;initial dma address
+bfb3 bfb3 s ;
+bfb3 bfb3 s ;	curtrka - alloca are set upon disk select
+bfb3 bfb3 s ;	(data must be adjacent, do not insert variables)
+bfb3 bfb3 s ;	(address of translate vector, not used)
+bfb3 bfb3 s cdrmaxa:ds	word	;pointer to cur dir max value
+bfb5 bfb5 s curtrka:ds	word	;current track address
+bfb7 bfb7 s curreca:ds	word	;current record address
+bfb9 bfb9 s buffa:	ds	word	;pointer to directory dma address
+bfbb bfbb s dpbaddr:ds	word	;current disk parameter block address
+bfbd bfbd s checka:	ds	word	;current checksum vector address
+bfbf bfbf s alloca:	ds	word	;current allocation vector address
+bfc1 bfc1 s addlist	equ	$-buffa	;address list size
+bfc1 bfc1 s ;
+bfc1 bfc1 s ;	sectpt - offset obtained from disk parm block at dpbaddr
+bfc1 bfc1 s ;	(data must be adjacent, do not insert variables)
+bfc1 bfc1 s sectpt:	ds	word	;sectors per track
+bfc3 bfc3 s blkshf:	ds	byte	;block shift factor
+bfc4 bfc4 s blkmsk:	ds	byte	;block mask
+bfc5 bfc5 s extmsk:	ds	byte	;extent mask
+bfc6 bfc6 s maxall:	ds	word	;maximum allocation number
+bfc8 bfc8 s dirmax:	ds	word	;largest directory number
+bfca bfca s dirblk:	ds	word	;reserved allocation bits for directory
+bfcc bfcc s chksiz:	ds	word	;size of checksum vector
+bfce bfce s offset:	ds	word	;offset tracks at beginning
+bfd0 bfd0 s dpblist	equ	$-sectpt	;size of area
+bfd0 bfd0 s ;
+bfd0 bfd0 s ;	local variables
+bfd0 bfd0 s tranv:	ds	word	;address of translate vector
+bfd2 bfd2 s fcb$copied:
+bfd2 bfd2 s 	ds	byte	;set true if copy$fcb called
+bfd3 bfd3 s rmf:	ds	byte	;read mode flag for open$reel
+bfd4 bfd4 s dirloc:	ds	byte	;directory flag in rename, etc.
+bfd5 bfd5 s seqio:	ds	byte	;1 if sequential i/o
+bfd6 bfd6 s linfo:	ds	byte	;low(info)
+bfd7 bfd7 s dminx:	ds	byte	;local for diskwrite
+bfd8 bfd8 s searchl:ds	byte	;search length
+bfd9 bfd9 s searcha:ds	word	;search address
+bfdb bfdb s tinfo:	ds	word	;temp for info in "make"
+bfdd bfdd s single:	ds	byte	;set true if single byte allocation map
+bfde bfde s resel:	ds	byte	;reselection flag
+bfdf bfdf s olddsk:	ds	byte	;disk on entry to bdos
+bfe0 bfe0 s fcbdsk:	ds	byte	;disk named in fcb
+bfe1 bfe1 s rcount:	ds	byte	;record count in current fcb
+bfe2 bfe2 s extval:	ds	byte	;extent number and extmsk
+bfe3 bfe3 s vrecord:ds	word	;current virtual record
+bfe5 bfe5 s arecord:ds	word	;current actual record
+bfe7 bfe7 s arecord1:	ds	word	;current actual block# * blkmsk
+bfe9 bfe9 s ;
+bfe9 bfe9 s ;	local variables for directory access
+bfe9 bfe9 s dptr:	ds	byte	;directory pointer 0,1,2,3
+bfea bfea s dcnt:	ds	word	;directory counter 0,1,...,dirmax
+bfec bfec s drec:	ds	word	;directory record 0,1,...,dirmax/4
+bfee bfee s ;
+bfee bfee s bios	equ	0c000h	;next module
+bfee bfee s 	end
+0002 v dskshf
+b2d5 a selmsg
+b209 a pererr
+ba01 a copydir
+bfc1 a sectpt
+b71e a nowrite
+bbbc a seqdiskread
+0000 v false
+0020 v fcblen
+b3b1 a crlfp
+b7c4 a initialcs
+b72c a setro
+bfd3 a rmf
+b856 a rotl
+b864 a rotr
+b94a a searchnext
+b705 a hlrotl0
+b323 a conbrk
+b6eb a hlrotr0
+b819 a readdir0
+b820 a readdir1
+0019 v arech
+0021 v arecl
+b9a4 a delete0
+bacd a merge0
+bae8 a merged
+bfb3 a cdrmaxa
+bfca a dirblk
+bfd9 a searcha
+bfd8 a searchl
+b92d a searchn
+bcfe a nospace
+b9fd a copyfcb
+0022 v dvers
+bfbd a checka
+b99c a delete
+b5a1 a home
+0009 v tab
+bc1c a diskwr0
+bc6e a diskwr1
+bcd2 a diskwr2
+bd00 a diskwr3
+bc6c a diskwru
+00e5 v empty
+ba40 a indic0
+bd93 a randiskread
+bfdb a tinfo
+000f v dpblist
+bb83 a openmod
+bfd6 a linfo
+b541 a lstack
+b6fd a computecs0
+b6f7 a computecs
+b85c a setallocbit
+b499 a backsp
+ba3b a indicators
+b3a4 a backup
+bfde a resel
+bcbb a diskwr11
+bda5 a computerr
+ba51 a open
+bc8c a fill0
+bc9a a fill1
+b75e a getdptra
+badb a fcbnzero
+b306 a conech
+007b v tcrech
+00b8 v tcrecl
+bb24 a make
+b550 a move0
+b547 a selerror
+b543 a info
+b2b1 a rofsub
+b77f a compcdr
+b671 a getdmd
+b953 a searchloop
+bcdf a noupdate
+be45 a curselect
+b50a a compcol
+b545 a aret
+b9ec a retblock
+bfbf a alloca
+b50b a strtcol
+b6a6 a getexta
+bfdd a single
+0008 v addlist
+bfac a efcb
+be06 a getnextsize
+b20d a roderr
+b2a5 a selsub
+b470 a linelen
+bbfb a diskeof
+b805 a readdir
+bfdf a olddsk
+b79e a checksum
+b6bb a getfcb
+baa2 a close
+0000 v reboot
+b314 a echoc
+bfbb a dpbaddr
+b907 a compext
+b7d4 a rddir
+b5e4 a seek0
+b5fa a seek1
+b60f a seek2
+007f v rubout
+0006 v bdosa
+b211 a bdose
+b5bb a diocomp
+b504 a funcret
+ba8b a openrcnt
+b44e a backx
+0005 v fcbshf
+b2c6 a dskerr
+bfc4 a blkmsk
+b426 a notrub
+bfb9 a buffa
+b4a9 a rdech1
+b4a6 a rdecho
+b2ca a permsg
+001f v lstfcb
+b7fe a setenddir
+b5c3 a seekdir
+bfce a offset
+ba16 a rename
+b3b9 a crlfp0
+bc03 a diskwrite
+bfaf a dlog
+bf3b a setusrcode
+b4e0 a dirinp
+0000 v off
+bfc6 a maxall
+b8b1 a initial0
+b8d2 a initial2
+b7c6 a wrdir
+b59d a retselect
+000d v ubytes
+b6ae a getfcba
+ba10 a seekcopy
+bb5a a openreel
+bfc5 a extmsk
+b247 a functab
+b754 a checkwrite
+bd8b a seekerr
+bbb6 a openrerr
+bafd a dmset
+b37f a ctlout
+b983 a endsearch
+b7da a setdata
+0080 v tbuff
+b50f a entsp
+b97c a searchok
+b769 a getmodnum
+b9d1 a righttst
+b3d3 a print
+b704 a hlrotl
+b6ea a hlrotr
+000c v extnum
+00ff v true
+bbe6 a recordok
+0003 v ioloc
+b795 a subdh
+000d v cr
+000a v lf
+bb17 a endmerge
+ffff v on
+bc48 a blockok
+000e v modnum
+b54a a goerr
+b3c9 a crlf
+bd03 a rseek
+0018 v ssize
+bfd4 a dirloc
+ffff v enddir
+b20f a roferr
+b3e1 a read
+bfb5 a curtrka
+b478 a rep0
+b48a a rep1
+bfe3 a vrecord
+bfc8 a dirmax
+bde4 a getsize
+bfe9 a dptr
+b764 a addh
+007b v ctrkh
+00b8 v ctrkl
+bfb1 a dmaad
+001f v maxext
+be0e a setrandom
+b542 a curdsk
+bc64 a allocwd
+bf74 a goback
+ba94 a mergezero
+be21 a select
+bec2 a qselect
+b20b a selerr
+0003 v ctlc
+0005 v ctle
+0008 v ctlh
+0010 v ctlp
+0012 v ctlr
+0013 v ctls
+0015 v ctlu
+0018 v ctlx
+001a v ctlz
+bfc3 a blkshf
+b918 a search
+0080 v recsiz
+b7f5 a endofdir
+b79c a newchecksum
+b2e1 a rodmsg
+b50c a column
+b4c1 a readen
+bf29 a sthlret
+b299 a persub
+b3f1 a readn0
+b3ef a readnx
+b645 a dmpos0
+b653 a dmpos1
+b65c a dmpos2
+bb46 a make0
+bfe0 a fcbdsk
+b348 a conout
+b541 a usrcode
+bd07 a rseek1
+000f v namlen
+b379 a notbacksp
+0020 v nxtrec
+bfec a drec
+b684 a allocated
+b396 a tab0
+b78c a setcdr
+bfb7 a curreca
+b342 a conb0
+b345 a conb1
+b747 a checkrofile
+b2fb a conin
+b744 a checkrodir
+003e v crech
+005f v crecl
+bfcc a chksiz
+0010 v dskmap
+bfe7 a arecord1
+0001 v byte
+b5d1 a seek
+b973 a searchext
+b2ba a dskmsg
+0003 v dskmsk
+b390 a tabout
+b7e0 a setdir
+b8f6 a pdollar
+b9be a getblock
+b7e3 a setdma
+ba5a a opencopy
+b50d a listcp
+0009 v rofile
+bd47 a ranclose
+bfe5 a arecord
+b9f4 a retblock0
+b8a3 a initialize
+b994 a searchfin
+bae1 a buffnzero
+b5b2 a rdbuff
+b901 a copydirloc
+0002 v word
+b65e a getdm
+b362 a compout
+000a v invis
+b3ac a pctlh
+bf91 a retmon
+b6de a setfcb1
+b6d2 a setfcb
+bfd2 a fcbcopied
+b86b a scandm
+b70b a setcdisk
+0004 v dirrec
+b89d a scanm3
+bbfe a seqdiskwrite
+b545 v lret
+b778 a setfwf
+bfe1 a rcount
+bfe2 a extval
+b5b8 a wrbuff
+b501 a staret
+bfd0 a tranv
+b559 a selectdisk
+b50e a kbchar
+b54f a move
+ba27 a rename0
+bb8e a openreel0
+bbac a openreel1
+bbaf a openreel2
+bdd2 a getfilesize
+005e v ctl
+000c v diskf
+bbc1 a diskread
+0000 v test
+be51 a reselect
+bfd5 a seqio
+b875 a scandm0
+b888 a scandm1
+b88e a scandm2
+bd7f a seekok
+bd84 a badseek
+000f v reccnt
+005c v tfcb
+b835 a getallocbit
+0021 v ranrec
+b63e a dmposition
+bfad a rodsk
+b2ab a rodsub
+be75 a noselect
+b2e5 a errflg
+0080 v fwfmsk
+007f v lstrec
+b2dc a rofmsg
+bd9c a randiskwrite
+bc3b a nopblock
+b3e1 v func10
+b4fe a func11
+be7e a func12
+be83 a func13
+be45 v func14
+be9c a func15
+bea5 a func16
+beab a func17
+bec8 a func18
+bed7 a func19
+bee0 a func20
+bee6 a func21
+beec a func22
+bef5 a func23
+befe a func24
+bf04 a func25
+bf0a a func26
+bf11 a func27
+b72c v func28
+bf17 a func29
+b2b4 a waiterr
+bf1d a func30
+bf26 a func31
+bf2d a func32
+bf41 a func33
+bf47 a func34
+bf4d a func35
+be0e v func36
+bf53 a func37
+b504 v func38
+b504 v func39
+bf9b a func40
+b677 a index
+b68a a atran
+b772 a clrmodnum
+b7e9 a dirtouser
+000f v maxmod
+b9c0 a lefttst
+c000 v bios
+b505 a setlret1
+0029 v nfuncs
+bfd7 a dminx
+b690 a atran0
+be0c a setsize
+bfea a dcnt
+b4bd a notc
+b437 a note
+b416 a noth
+b448 a notp
+b4a6 a notr
+b46b a notu
+b45f a notx
+b4c8 a func1
+b390 v func2
+b4ce a func3
+b4d4 a func6
+b4ed a func7
+b4f3 a func8
+b4f8 a func9
+bb1f a mergerr
