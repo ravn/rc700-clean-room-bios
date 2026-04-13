@@ -26,3 +26,4 @@ compile_commands.json
 *.lis
 *.o
 *.lst
+cpm/zout/
