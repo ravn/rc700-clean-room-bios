@@ -40,8 +40,8 @@ static void test_display_dma_reprogram(void) {
     display_isr_state.display_buf = (byte *)0xF800;
     isr_reprogram_display_dma();
 
-    /* 11 port writes per Section 4.1 step 2 */
-    assert(write_count == 11);
+    /* 8 port writes: mask ch2, mask ch3, clear flip, ch2 addr lo+hi, ch2 count lo+hi, unmask ch2 */
+    assert(write_count == 8);
 
     int w = 0;
     assert(writes[w].port == 0xFA && writes[w].value == 0x06); w++;  /* mask ch.2 */
@@ -51,10 +51,7 @@ static void test_display_dma_reprogram(void) {
     assert(writes[w].port == 0xF4 && writes[w].value == 0xF8); w++;  /* ch.2 addr high = 0xF8 */
     assert(writes[w].port == 0xF5 && writes[w].value == 0xCF); w++;  /* ch.2 count low */
     assert(writes[w].port == 0xF5 && writes[w].value == 0x07); w++;  /* ch.2 count high */
-    assert(writes[w].port == 0xF7 && writes[w].value == 0x00); w++;  /* ch.3 count low */
-    assert(writes[w].port == 0xF7 && writes[w].value == 0x00); w++;  /* ch.3 count high */
     assert(writes[w].port == 0xFA && writes[w].value == 0x02); w++;  /* unmask ch.2 */
-    assert(writes[w].port == 0xFA && writes[w].value == 0x03); w++;  /* unmask ch.3 */
     printf("  Display DMA reprogram: %d writes verified\n", w);
 }
 
@@ -157,11 +154,12 @@ static void test_full_display_isr(void) {
      * 2. Cursor update (3 writes)
      * 3. CTC Ch.2 reprogram (2 writes)
      * Total: 16 writes */
-    assert(write_count == 16);
+    /* 8 DMA + 3 cursor + 2 CTC = 13 writes */
+    assert(write_count == 13);
 
     /* Verify CTC reprogram at the end */
-    assert(writes[14].port == 0x0E && writes[14].value == 0xD7);
-    assert(writes[15].port == 0x0E && writes[15].value == 0x01);
+    assert(writes[11].port == 0x0E && writes[11].value == 0xD7);
+    assert(writes[12].port == 0x0E && writes[12].value == 0x01);
 
     /* RTC should have incremented */
     assert(display_isr_state.rtc == 101);

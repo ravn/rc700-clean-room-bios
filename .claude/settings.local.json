@@ -42,7 +42,20 @@
       "Bash(awk '{print $6, $7, $8, $9}')",
       "Bash(ls -la build/z80/rc702-bios*)",
       "Bash(~/git/mame/floptool flopconvert:*)",
-      "Bash(~/git/mame/floptool identify:*)"
+      "Bash(~/git/mame/floptool identify:*)",
+      "Bash(gh issue:*)",
+      "WebFetch(domain:www.jbox.dk)",
+      "WebFetch(domain:www.seasip.info)",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "Bash(mkdir -p /Users/ravn/git/rc700-cleanroom-bios/cpm)",
+      "Bash(curl -sO https://www.jbox.dk/rc702/source/OS2CCP.ASM)",
+      "Bash(curl -sO https://www.jbox.dk/rc702/source/OS3BDOS.ASM)",
+      "Bash(/Users/ravn/git/rc700-gensmedet/zmac/bin/zmac --version)",
+      "Bash($ZMAC:*)",
+      "Bash(xxd /Users/ravn/git/rc700-cleanroom-bios/cpm/bdos.asm)",
+      "Bash(xxd)",
+      "Bash(build/native/test/test_interrupt)"
     ]
   },
   "prefersReducedMotion": true

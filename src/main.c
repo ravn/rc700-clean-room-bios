@@ -21,10 +21,10 @@
 #include "interrupt.h"
 #include "jtvars.h"
 
-/* CP/M system addresses for 56K configuration */
-#define CCP_BASE    0xC400
-#define BDOS_BASE   0xD480
-/* BIOS_BASE defined in jtvars.h */
+/* CP/M system addresses — must match assembled CCP+BDOS */
+#define CCP_BASE    0xAA00
+#define BDOS_BASE   0xB206  /* BDOS entry = BDOS ORG + 6 */
+/* BIOS_BASE defined in jtvars.h (currently 0xC000) */
 
 /* IOBYTE location */
 #define IOBYTE_ADDR 0x0003
@@ -203,6 +203,9 @@ void isr_sio_a_rx(void) ISR_FUNC   {
 }
 void isr_sio_a_spec(void) ISR_FUNC { serial_special_isr(&sio_a); }
 
+/* Forward declaration */
+void bios_wboot(void);
+
 /* Signon message */
 static const char signon[] = "\x0C" "RC702 Clean Room BIOS v0.1\r\n";
 
@@ -236,8 +239,9 @@ void bios_boot(void) {
     keyboard_init(&keyboard);
     floppy_init(&floppy_state);
 
-    /* Step 4: Don't reset the 8275 — the PROM already configured it.
-     * Our display ISR will reprogram DMA to 0xF800 on the next frame. */
+    /* Step 4: FDC — the PROM already sent SPECIFY.
+     * Recalibrate drive 0 to get to a known state. */
+    fdc_recalibrate(&floppy_state, 0);
 
     /* Step 5: Remaining setup */
     last_format = 0xFF;
@@ -252,10 +256,8 @@ void bios_boot(void) {
     cur_sector = 0;
     cur_dma = (byte *)0x0080;
 
-    /* Busy loop — don't attempt warm boot yet */
-    for (;;) {
-        hal_ei();
-    }
+    /* Fall through to warm boot — loads CCP+BDOS from track 1 */
+    bios_wboot();
 }
 
 /* CONST: Console status — returns 0xFF if char ready, 0x00 if not */
@@ -504,19 +506,45 @@ void bios_wboot(void) {
     bios_home();
 
     /* Load CCP+BDOS from track 1 */
-    bios_setdma(CCP_BASE);
+    cur_dma = (byte *)CCP_BASE;
     bios_settrk(1);
     for (word sec = 0; sec < NSECTS; sec++) {
         bios_setsec(sec);
-        if (bios_read() != 0) {
-            /* Disk read error — on real hardware would halt */
-            return;
+        deblock_state.sekdsk = cur_disk;
+        deblock_state.sektrk = cur_track;
+        deblock_state.seksec = (byte)sec;
+        deblock_state.dmaadr = cur_dma;
+        if (deblock_read(&deblock_state) != 0) {
+            /* Disk read error — display message and halt */
+            const char *msg = "Disk read error - reset\r\n";
+            for (const char *p = msg; *p; p++)
+                crt_output((byte)*p);
+            for (;;) hal_ei();
         }
         cur_dma += 128;
     }
 
     /* Reset DMA to default */
-    bios_setdma(0x0080);
+    cur_dma = (byte *)0x0080;
+
+    /* Install CP/M entry vectors */
+#ifdef __SDCC
+    /* 0x0000: JP BIOS+3 (warm boot) */
+    *(byte *)0x0000 = 0xC3;
+    *(word *)0x0001 = BIOS_BASE + 3;
+    /* 0x0005: JP BDOS */
+    *(byte *)0x0005 = 0xC3;
+    *(word *)0x0006 = BDOS_BASE;
+#endif
+
+    /* Jump to CCP with current disk in C */
+#ifdef __SDCC
+    __asm
+        ld   a, (_cur_disk)
+        ld   c, a
+        jp   0xAA00
+    __endasm;
+#endif
 }
 
 /* ---- Extended Entry Points (Section 14) — stubs ---- */
