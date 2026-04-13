@@ -1,12 +1,20 @@
 #include "floppy.h"
 #include "hal.h"
+#include "interrupt.h"
 
-/* Direct port access via __sfr generates IN A,(n) / OUT (n),A.
- * This is critical — IN A,(C) / OUT (C),A use B:C as 16-bit address
- * and give wrong results when B != 0 (which SDCC doesn't guarantee). */
+/* All FDC/DMA/CTC port I/O uses __sfr to generate IN A,(n) / OUT (n),A.
+ * The hal_in/hal_out functions use IN A,(C) / OUT (C),A which put B on
+ * the high address bus — this can cause wrong port reads in MAME. */
 #ifdef __SDCC
-__sfr __at(FDC_MSR_PORT)  fdc_msr;
-__sfr __at(FDC_DATA_PORT) fdc_data;
+__sfr __at(FDC_MSR_PORT)    fdc_msr;
+__sfr __at(FDC_DATA_PORT)   fdc_data;
+__sfr __at(DMA_MASK_PORT)   dma_mask;
+__sfr __at(DMA_MODE_PORT)   dma_mode;
+__sfr __at(DMA_CLEAR_PORT)  dma_clear;
+__sfr __at(DMA_ADDR1_PORT)  dma_addr1;
+__sfr __at(DMA_COUNT1_PORT) dma_count1;
+__sfr __at(0x0C)            ctc_ch0;   /* CTC vector base */
+__sfr __at(0x0F)            ctc_ch3;   /* FDC interrupt trigger */
 #define FDC_MSR_READ()      fdc_msr
 #define FDC_DATA_READ()     fdc_data
 #define FDC_DATA_WRITE(v)   (fdc_data = (v))
@@ -48,13 +56,17 @@ byte fdc_read_byte(void) {
 
 void fdc_read_results(byte *st0, byte *st1, byte *st2,
                       byte *c, byte *h, byte *r, byte *n) {
-    *st0 = fdc_read_byte();
-    *st1 = fdc_read_byte();
-    *st2 = fdc_read_byte();
-    *c   = fdc_read_byte();
-    *h   = fdc_read_byte();
-    *r   = fdc_read_byte();
-    *n   = fdc_read_byte();
+    /* Read result bytes until CB (bit 4) clears, max 7.
+     * Short delay between read and CB check lets FDC update MSR. */
+    byte *results[7] = { st0, st1, st2, c, h, r, n };
+    for (int i = 0; i < 7; i++) {
+        *results[i] = fdc_read_byte();
+        /* Delay: 4 iterations per working BIOS */
+        for (volatile int d = 0; d < 4; d++) ;
+        /* Check CB — if clear, FDC done with result phase */
+        if (!(FDC_MSR_READ() & MSR_CB))
+            break;
+    }
 }
 
 void fdc_specify(byte srt_hut, byte hlt_nd) {
@@ -76,39 +88,67 @@ void fdc_wait_idle(void) {
         hal_ei();
 }
 
-/* Polling-based seek/recalibrate: wait for RQM, then SENSE INTERRUPT.
- * After RECALIBRATE/SEEK, the FDC sets D0B. When the seek completes,
- * RQM goes high. SENSE INTERRUPT clears D0B and returns status. */
+/* Arm CTC Ch.3 and clear completion flag.
+ * Must be called before sending FDC command. */
+static void fdc_arm_interrupt(void) {
+    fdc_isr_state.complete = 0;
+#ifdef __SDCC
+    ctc_ch0 = 0x08;   /* ensure CTC vector base = 0x08 */
+    ctc_ch3 = 0xD7;   /* counter mode, interrupt enabled */
+    ctc_ch3 = 0x01;   /* count 1 trigger */
+#else
+    /* native: ISR is called synchronously by test harness */
+#endif
+}
+
+/* Wait for ISR to set completion flag. */
+static void fdc_wait_complete(void) {
+    while (fdc_isr_state.complete == 0)
+        hal_ei();
+}
+
+/* Interrupt-driven seek/recalibrate: arm CTC Ch.3, send command,
+ * wait for ISR (which does SENSE INTERRUPT for seek/recalibrate,
+ * or reads 7 result bytes for READ/WRITE). */
 void fdc_recalibrate(floppy_t *fl, byte drive) {
+    fdc_arm_interrupt();
     fdc_send_byte(FDC_CMD_RECALIBRATE);
     fdc_send_byte(drive & 0x03);
-    wait_rqm_write();
-    byte st0, pcn;
-    fdc_sense_interrupt(&st0, &pcn);
-    fl->last_st0 = st0;
+    fdc_wait_complete();
+    fl->last_st0 = fdc_isr_state.st0;
     fl->current_track = 0;
 }
 
 void fdc_seek(floppy_t *fl, byte drive, byte cylinder) {
+    fdc_arm_interrupt();
     fdc_send_byte(FDC_CMD_SEEK);
     fdc_send_byte(drive & 0x03);
     fdc_send_byte(cylinder);
-    wait_rqm_write();
-    byte st0, pcn;
-    fdc_sense_interrupt(&st0, &pcn);
-    fl->last_st0 = st0;
+    fdc_wait_complete();
+    fl->last_st0 = fdc_isr_state.st0;
     fl->current_track = cylinder;
 }
 
 void dma_setup(word addr, word count, byte mode) {
-    hal_out(DMA_MASK_PORT, 0x05);           /* mask channel 1 */
-    hal_out(DMA_MODE_PORT, mode);           /* set mode */
-    hal_out(DMA_CLEAR_PORT, 0x00);          /* clear byte pointer */
-    hal_out(DMA_ADDR1_PORT, (byte)addr);         /* address low */
-    hal_out(DMA_ADDR1_PORT, (byte)(addr >> 8));  /* address high */
-    hal_out(DMA_COUNT1_PORT, (byte)count);        /* count low */
-    hal_out(DMA_COUNT1_PORT, (byte)(count >> 8)); /* count high */
-    hal_out(DMA_MASK_PORT, 0x01);           /* unmask channel 1 */
+#ifdef __SDCC
+    dma_mask   = 0x05;                /* mask channel 1 */
+    dma_mode   = mode;                /* set mode */
+    dma_clear  = 0x00;               /* clear byte pointer */
+    dma_addr1  = (byte)addr;          /* address low */
+    dma_addr1  = (byte)(addr >> 8);   /* address high */
+    dma_count1 = (byte)count;         /* count low */
+    dma_count1 = (byte)(count >> 8);  /* count high */
+    dma_mask   = 0x01;                /* unmask channel 1 */
+#else
+    hal_out(DMA_MASK_PORT, 0x05);
+    hal_out(DMA_MODE_PORT, mode);
+    hal_out(DMA_CLEAR_PORT, 0x00);
+    hal_out(DMA_ADDR1_PORT, (byte)addr);
+    hal_out(DMA_ADDR1_PORT, (byte)(addr >> 8));
+    hal_out(DMA_COUNT1_PORT, (byte)count);
+    hal_out(DMA_COUNT1_PORT, (byte)(count >> 8));
+    hal_out(DMA_MASK_PORT, 0x01);
+#endif
 }
 
 /* Polling-based READ DATA: send 9 command bytes, DMA runs,
@@ -123,6 +163,7 @@ int floppy_read_sector(floppy_t *fl, byte drive, byte cylinder, byte head,
     byte cmd = fdf->mf ? FDC_CMD_READ_MFM : FDC_CMD_READ_FM;
     byte hd_sel = (byte)((head << 2) | (drive & 0x03));
 
+    fdc_arm_interrupt();
     fdc_send_byte(cmd);
     fdc_send_byte(hd_sel);
     fdc_send_byte(cylinder);
@@ -133,14 +174,13 @@ int floppy_read_sector(floppy_t *fl, byte drive, byte cylinder, byte head,
     fdc_send_byte(fdf->gap);
     fdc_send_byte((byte)(fdf->n == 0 ? 0x80 : 0xFF));
 
-    /* DMA runs autonomously. Poll for result phase. */
-    byte st0, st1, st2, rc, rh, rr, rn;
-    fdc_read_results(&st0, &st1, &st2, &rc, &rh, &rr, &rn);
+    /* DMA runs autonomously. ISR reads result bytes when done. */
+    fdc_wait_complete();
 
-    fl->last_st0 = st0;
-    fl->last_st1 = st1;
+    fl->last_st0 = fdc_isr_state.st0;
+    fl->last_st1 = fdc_isr_state.st1;
 
-    return (st0 & ST0_IC_MASK) == ST0_NT ? 0 : 1;
+    return (fl->last_st0 & ST0_IC_MASK) == ST0_NT ? 0 : 1;
 }
 
 int floppy_write_sector(floppy_t *fl, byte drive, byte cylinder, byte head,
@@ -153,6 +193,7 @@ int floppy_write_sector(floppy_t *fl, byte drive, byte cylinder, byte head,
     byte cmd = fdf->mf ? FDC_CMD_WRITE_MFM : FDC_CMD_WRITE_FM;
     byte hd_sel = (byte)((head << 2) | (drive & 0x03));
 
+    fdc_arm_interrupt();
     fdc_send_byte(cmd);
     fdc_send_byte(hd_sel);
     fdc_send_byte(cylinder);
@@ -163,13 +204,12 @@ int floppy_write_sector(floppy_t *fl, byte drive, byte cylinder, byte head,
     fdc_send_byte(fdf->gap);
     fdc_send_byte((byte)(fdf->n == 0 ? 0x80 : 0xFF));
 
-    byte st0, st1, st2, rc, rh, rr, rn;
-    fdc_read_results(&st0, &st1, &st2, &rc, &rh, &rr, &rn);
+    fdc_wait_complete();
 
-    fl->last_st0 = st0;
-    fl->last_st1 = st1;
+    fl->last_st0 = fdc_isr_state.st0;
+    fl->last_st1 = fdc_isr_state.st1;
 
-    return (st0 & ST0_IC_MASK) == ST0_NT ? 0 : 1;
+    return (fl->last_st0 & ST0_IC_MASK) == ST0_NT ? 0 : 1;
 }
 
 int floppy_read_with_retry(floppy_t *fl, byte drive, byte cylinder, byte head,

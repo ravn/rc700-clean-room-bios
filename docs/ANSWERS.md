@@ -66,3 +66,46 @@ For clang: address_space(2) pointer dereferences compile to the same IN A,(n) / 
 The port addresses are compile-time constants: FDC status = 0x04, FDC data = 0x05. There is no IN A,(C) form used, and B is not involved. The only      
 exception is port_in_rt(p) / port_out_rt(p, v) (clang-only, runtime port number), but the FDC code doesn't use that — all FDC port accesses are the   
 constant-address form.                                                
+-----
+
+  ---                                                                                                                                                     
+Result byte reading: reads until CB clears, NOT exactly 7
+
+Both the BIOS and PROM use the same pattern: read a result byte, then check CB (MSR bit 4) to decide whether to continue. They do not blindly read 7    
+bytes.
+
+BIOS (bios.c:323-335): do-while loop up to 7 iterations. Each iteration:
+1. fdc_read() — polls MSR for RQM=1+DIO=1, then reads data port
+2. Short delay (4-iteration empty loop)
+3. Check port_in(fdc_status) & 0b00010000 (CB bit). If CB=0, return immediately — don't read more bytes.
+4. Decrement counter, loop if < 7.
+
+PROM (rom.c:357-372): for loop up to 7 iterations. Each iteration:
+1. fdc_read_when_ready() — polls MSR for RQM=1+DIO=1, reads data port
+2. Check fdc_status() & 0b00010000 (CB bit). If CB=0, store DMA status in the next byte slot and return.
+3. If all 7 bytes read and CB is still set → error halt (0xFE).
+
+So the answer is: it reads until CB clears, with a maximum of 7. For a normal READ DATA result, the FDC produces exactly 7 result bytes (ST0, ST1, ST2,
+C, H, R, N), so CB will clear after the 7th byte is read. For SENSE INTERRUPT STATUS (2 bytes) or SENSE DRIVE STATUS (1 byte), CB clears sooner and the
+loop exits early.
+
+The short delay in the BIOS between reading and checking CB is significant — it gives the FDC a few microseconds to update MSR after the data port read.
+Without it, you might read CB before the FDC has deasserted it, and try to read a nonexistent 8th byte.
+
+After the last result byte is read and CB clears, MSR shows RQM=1, DIO=0 (idle, ready for next command). The transition is immediate from the CPU's     
+perspective once CB drops.
+
+DMA port I/O: all OUT (n),A — never OUT (C),A
+
+All DMA port access goes through the DEFPORT / port_out macro system. Both compilers produce OUT (n),A (opcode D3 nn):
+
+- SDCC: __sfr __at(addr) declarations. Assigning to an __sfr variable emits OUT (n),A. The port address is an 8-bit immediate in the instruction. B is  
+  irrelevant.
+- Clang: address_space(2) pointer dereference with a (uint8_t) cast on the address. The compiler lowers this to OUT (n),A.
+
+There is no OUT (C),A anywhere in the FDC or DMA code. The port_in_rt / port_out_rt forms (which could theoretically use IN A,(C) / OUT (C),A for       
+runtime port selection) are clang-only and are not used by any FDC or DMA code.
+
+So the 0xF0-0xFF DMA ports are fine — OUT (n),A puts the 8-bit port on A0-A7 and the accumulator contents on A8-A15 (as per Z80 behavior for the OUT    
+(n),A instruction). The upper address bus byte is whatever was in A before the instruction, which doesn't matter because the RC702 hardware only decodes
+the low 8 address bits for I/O. There's no risk of the (B<<8|port) aliasing issue that OUT (C),A would have.          

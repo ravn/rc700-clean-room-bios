@@ -43,6 +43,8 @@ void hal_out(byte port, byte value) {
     switch (port) {
     case 0x05:  /* FDC data */
         fdc_imd_write_data(&fdc, value);
+        if (fdc_imd_check_interrupt(&fdc))
+            isr_floppy_complete();
         break;
     case 0xFA:  /* DMA mask */
         if (value == 0x01) {

@@ -14,3 +14,4 @@
 - [CP/M layout](reference_cpm_layout.md) — RC702 CP/M memory map and disk layout from jbox.dk
 - [MAME skip gameinfo](../../../.claude/projects/-Users-ravn-git-rc700-cleanroom-bios/memory/feedback_mame_skip_gameinfo.md) — Always use -skip_gameinfo when running MAME from scripts
 - [Use Docker](../../../.claude/projects/-Users-ravn-git-rc700-cleanroom-bios/memory/feedback_use_docker.md) — Use Docker for missing binaries, don't install packages
+- [No Lua port reads](../../../.claude/projects/-Users-ravn-git-rc700-cleanroom-bios/memory/feedback_no_lua_port_read.md) — CRITICAL: never read I/O ports from MAME Lua, causes side effects

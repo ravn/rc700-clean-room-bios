@@ -56,6 +56,8 @@ void hal_out(byte port, byte value) {
     switch (port) {
     case 0x05:
         fdc_imd_write_data(&fdc, value);
+        if (fdc_imd_check_interrupt(&fdc))
+            isr_floppy_complete();
         break;
     case 0xFA:
         if (value == 0x01) {
