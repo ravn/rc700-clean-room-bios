@@ -69,6 +69,7 @@ void fdc_read_results(byte *st0, byte *st1, byte *st2,
                       byte *c, byte *h, byte *r, byte *n);
 
 /* FDC commands */
+void fdc_wait_idle(void);
 void fdc_specify(byte srt_hut, byte hlt_nd);
 void fdc_recalibrate(floppy_t *fl, byte drive);
 void fdc_seek(floppy_t *fl, byte drive, byte cylinder);

@@ -87,7 +87,7 @@ _isr_vector_data:
     DEFW _isr_dummy              ;  4: CTC Ch.0 (baud rate) vector=0x08
     DEFW _isr_dummy              ;  5: CTC Ch.1 (baud rate) vector=0x0A
     DEFW _isr_crt_fast           ;  6: CTC Ch.2 (display) vector=0x0C
-    DEFW _isr_dummy              ;  7: CTC Ch.3 (floppy) — disabled, using polling
+    DEFW _isr_dummy              ;  7: CTC Ch.3 (floppy) — polling mode
     DEFW _isr_sio_b_tx           ;  8: SIO Ch.B TX vector=0x10
     DEFW _isr_sio_b_ext          ;  9: SIO Ch.B EXT vector=0x12
     DEFW _isr_sio_b_rx           ; 10: SIO Ch.B RX vector=0x14

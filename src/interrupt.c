@@ -82,27 +82,51 @@ void isr_display_refresh(void) {
 
 /* ---- Floppy Complete ISR (Section 4.2) ---- */
 
-void isr_floppy_complete(void) {
-    /* Short delay (5 iterations) */
-    for (int i = 0; i < 5; i++)
-        (void)hal_in(0x04);
+/* Use __sfr for FDC ports — generates IN A,(n) / OUT (n),A
+ * which doesn't involve the B register. */
+#ifdef __SDCC
+__sfr __at(0x04) isr_fdc_msr;
+__sfr __at(0x05) isr_fdc_data;
+__sfr __at(0x0F) isr_ctc_ch3;
+#define ISR_FDC_MSR   isr_fdc_msr
+#define ISR_FDC_DATA  isr_fdc_data
+#else
+#define ISR_FDC_MSR   hal_in(0x04)
+#define ISR_FDC_DATA  hal_in(0x05)
+#endif
 
-    /* Check if FDC is in result phase (CB set) */
-    byte msr = hal_in(0x04);
+void isr_floppy_complete(void) {
+    /* Check MSR bit 4 (CB — Controller Busy).
+     * CB=1 → result phase (READ/WRITE): read 7 result bytes.
+     * CB=0 → seek complete: issue SENSE INTERRUPT STATUS. */
+    byte msr = ISR_FDC_MSR;
     if (msr & 0x10) {
-        /* Result phase: read up to 7 result bytes */
-        fdc_isr_state.st0 = hal_in(0x05);
-        fdc_isr_state.st1 = hal_in(0x05);
-        /* Read remaining 5 result bytes (ST2, C, H, R, N) */
+        /* Result phase: read all 7 result bytes */
+        fdc_isr_state.st0 = ISR_FDC_DATA;
+        fdc_isr_state.st1 = ISR_FDC_DATA;
         for (int i = 0; i < 5; i++)
-            (void)hal_in(0x05);
+            (void)ISR_FDC_DATA;
     } else {
-        /* Non-result: SENSE INTERRUPT STATUS */
+        /* Seek/recalibrate complete: SENSE INTERRUPT STATUS */
+#ifdef __SDCC
+        isr_fdc_data = 0x08;  /* send SENSE INT command */
+#else
         hal_out(0x05, 0x08);
-        fdc_isr_state.st0 = hal_in(0x05);
-        (void)hal_in(0x05);  /* PCN */
+#endif
+        fdc_isr_state.st0 = ISR_FDC_DATA;
+        (void)ISR_FDC_DATA;  /* PCN */
     }
 
+    /* Re-arm CTC Ch.3 for next FDC operation */
+#ifdef __SDCC
+    isr_ctc_ch3 = 0xD7;
+    isr_ctc_ch3 = 0x01;
+#else
+    hal_out(0x0F, 0xD7);
+    hal_out(0x0F, 0x01);
+#endif
+
+    /* Signal completion LAST — mainline polls this */
     fdc_isr_state.complete = 0xFF;
 }
 

@@ -1,0 +1,2892 @@
+NEC
+
+uPD765A/uPD765B
+Single/Double Density
+Floppy-Disk Controller
+
+NEC Electronics Inc.
+Description
+
+Features
+
+The uPD765A/B is an LSI floppy disk controller (FDC)
+chip which contains the circuitry and control functions
+for interfacing a processor to 4 floppy disk drives. It is
+capableof either IBM 3740singledensity format (FM), or
+IBM System 34 double density format (MFM) including
+double-sided recording. The uPD765A/B provides control signals which simplify the design of an external
+phase-locked loop and write precompensation circuitry.
+The FDC simplifies and handles most of the burdens associated with implementing a floppy disk interface.
+
+Address mark detection circuitry is internal to the FDC
+which simplifies the phase-locked loop and read electronics. The track stepping rate, head load time, and
+head unload time are user-programmable. The
+uPD765A/uPD765B
+offers additional features such as
+multi-track and multi-side read and write commands
+and single and double density capabilities.
+
+Hand-shaking signals are provided in the uPD765A/B
+which make DMA operation easy to incorporate with the
+aid of an external DMA controller chip, such as the
+uPD8257. The
+FDC will operate in eitherthe DMA or nonDMA mode. In the non-DMA mode the FDC generates
+interrupts to !he processor every time a data byte is to
+be transferred. In the DMA mode, the processor need
+only load the command into the FDC and all data
+transfers occur under control of the FDC and DMA
+controllers.
+There are 16 commands which the uPD765A/uPD765B
+will execute. Most of these commands require multiple
+8-bit bytes to fully specify the operation which the
+processor wishes the FDC to perform. The following
+commands are available.
+Read Data
+Read ID
+Specify
+Read Diagnostic
+Scan Equal
+Scan High or Equal
+Scan Low or Equal
+Version
+
+Read Deleted Data
+Write Data
+Write ID (Format Write)
+Write Deleted Data
+Seek
+Recalibrate
+Sense Interrupt Status
+Sense Drive Status.
+
+FM, MFM Control
+Variable recording length: 128,256, .8192
+sector
+
+bytes/
+
+IBM-compatible format (single- and doublesided, single- and double-density)
+Multi-sector and multi-track transfer capability
+Drive up to 4 floppy or micro floppydisk drives
+Data scan capability-will scan a single sector or
+an entire cylinder comparing byte-for-byte host
+memory and disk data
+Data transfers in DMA or non-DMA mode
+Parallel seek operations on up to four drives
+Compatible with uPD8080/85,
+uPD8086/88,
+and uPD780
+(Z80@) microprocessors
+
+V-series
+
+Single-phase clock: 8 MHz maximum
+3 +5V only
+Z80 is a registered trademark of the Zilog
+
+Corporation
+
+Pin Configuration
+
+Ordering Information
+Device Number
+uPD765AC2
+
+Package
+
+40-pin plastic DIP
+
+8 MHz
+
+uPD765B
+
+40-pin plastic DIP
+
+8 MHz
+
+NECEL-000324
+
+Type
+
+Max Freq. of Operation
+
+5-3
+
+NEC
+
+uPD765A/uPD765B
+RD (Read Strobe)
+
+Pin Identification
+No.
+
+Symbol
+
+Function
+
+Reset input
+
+1
+
+RESET
+
+2
+3
+
+RD
+
+Read control input
+
+WR
+
+Write control input
+
+4
+
+C
+S
+
+Chip select input
+
+6-13
+
+A0
+DB0-DB7
+
+Data or status select input
+
+5
+
+Bidirectional data bus
+
+14
+
+DRQ
+
+DMA request output
+
+15
+
+DACK
+
+16
+17
+
+TC
+
+DMA acknowledge input
+Terminal count input
+
+18
+
+The RD input allows the transfer of data from the FDC
+to the data bus when low and either C
+Sor DACK is
+asserted.
+
+WR (Write Strobe)
+TheWR input allows the transfer of data to the FDC
+from the data bus when low. Disabled when C
+Sis high.
+
+A0 (Data/Status Select)
+The A0 input selects the data register (A0 = 1) or status
+register (A0=O) contents to be accessed through the
+data bus.
+
+INT
+
+Index input
+Interrupt request output
+
+19
+
+CLK
+
+Clock input
+
+20
+21
+
+GND
+
+Ground
+
+WCLK
+
+22
+23
+
+WINDOW
+
+Write clock input
+Read data window input
+
+R DATA
+
+Read data input
+
+DBo-DB7 (Data Bus)
+
+24
+
+SYNC
+
+VCO sync output
+
+25
+
+W E
+
+Write enable output
+
+DBo-DB7 are a bidirectional 8-bit
+Sis high.
+when C
+
+26
+
+MFM
+
+MFM output
+
+27
+28 29
+
+SIDE
+
+Head select output
+
+DRQ (DMA Request)
+
+USn US1
+
+FDD unit select output
+
+30
+
+WDATA
+
+Write data output
+
+The FDC asserts the DRQ output high to request a DMA
+transfer.
+
+31, 32
+33
+
+P S 0 PS1
+FLT/TRK0
+
+Fault/track zero input
+
+DACK (DMA Acknowledge)
+
+34
+
+WPRT/2SIDE
+
+Write protect/two side
+input
+
+When the DACK input is low, a DMA cycle is active and
+the controller is performing a DMA transfer.
+
+35
+
+READY
+HDLD
+
+R e a d y input
+
+36
+
+Head load output
+
+TC (Terminal Count)
+
+37
+
+FLTR/STEP
+
+Fault reset/step output
+
+38
+
+LCT/DIR
+
+Low current direction
+output
+
+When t h e T C input is high, it indicates the termination of
+a DMA transfer. It terminates data transfer during Read/
+Write/Scan commands in DMA or interrupt mode.
+
+39
+
+m/SEEK
+
+Read/write/ seek output
+
+40
+
+kc
+
+DC power ( +5 V)
+
+INDEX
+
+Preshift
+
+output
+
+C
+S(Chip Select)
+The FDC is selected when C
+S is low, enabling RD and
+WR.
+
+data bus. Disabled
+
+INDEX (Index)
+
+Pin Functions
+
+The INDEX input goes high at the beginning of a disk
+track.
+
+RESET (Reset)
+
+INT (Interrupt)
+
+The RESET input places the FDC in the idle state. It resets the output lines to the FDD to 0 (low), except PSO, 1
+and WDATA (undefined), INT and DRQ also go low;
+DBO-7 goes to an input state. It does not affect SRT,
+HUT, or HLT in the Specify command. If the RDY input is
+held high during reset, the FDC will generate an interrupt within 1.024ms.
+To clear this interrupt, use the
+Sense Interrupt Status command.
+
+The INT output is FDC’s interrupt request. In Non-DMA
+mode, the signal is output for each byte. In DMA mode,
+it is output at the termination of a command operation.
+
+CLK (Clock)
+CLK is the input for the FDC’s single-phase, lTL-level
+squarewave clock: 8 MHz or 4 MHz. (Requires a pull-up
+resistor.)
+
+NEC
+
+uPD765A/uPD765B
+
+WCLK (Write Clock)
+The WCLK input sets the data write rate to the FDD. It is
+500 kHz for FM, 1 MHz for MFM drives, for 8 MHz operation of the FDC; 250kHz FM or 500 kHz MFM for 4 MHz
+FDC operation.
+This signal must be input for read and write c y c l e s
+WCLK’s rising edge must be synchronized with CLK’s
+rising edge, except for the uPD765B.
+
+READY (Ready)
+
+WINDOW (Read Data Window)
+
+The READY input indicates that the FDD is ready to receive data.
+
+The WINDOW input is generated by the phase-locked
+loop (PLL). It is used to sample data from the FDD and in
+distinguishing between clock and data bits in the FDC.
+
+HDLD (Head Load)
+The HDLD output is the command which causes the
+read/write head in the FDD to contact the diskette.
+
+RDATA (Read Data)
+The RDATA input is the read data from the FDD,
+containing clock and data bits. To avoid a deadlock
+situation, input RDATA and WINDOW together.
+
+WDATA (Write Data)
+
+FLT/TRKO (Fault/Track 0)
+In the read/write mode, the FLT input detects FDD fault
+conditions. In the seek mode, TRKO indicates track 0
+head position.
+
+WDATA is the serial clock and data output to the FDD.
+
+WPRT/2SlDE (Write Protect/Two Side)
+
+WE (Write Enable)
+The WE output enables write data into the FDD.
+
+In the read/write mode, the WPRT input senses write
+protected status (at the drive or media.) In the seek
+mode, 2SIDE senses two-sided media.
+
+SYNC (VCO Sync)
+
+FLTR/STEP (Fault Reset/Step)
+
+The SYNC output inhibits the VCO in the PLL when low,
+enables it when high.
+
+In the read/write mode, the FLTR output resets the fault
+flip-flop in the FDD. In the seek mode, STEP outputs
+step pulses to move the head to another cylinder. A fault
+reset pulse is issued at the beginning or each Read or
+Write command prior to the HDLD signal.
+
+MFM (MFM Mode)
+The MFM output shows the
+high for MFM, low for FM.
+
+VCO’s
+
+operation mode. It is
+
+LCT/DlR (Low Current/Direction)
+
+U S 0 US1 (Unit Select 0,1)
+
+In the read/write mode, the LCT output indicates that
+the R/W head is positioned at cylinder 42 or greater. In
+the seek mode, the DIR output determines the direction
+the head will move in when it receives a step pulse. If
+DIR is 0, seeks are performed in the outward direction;
+DIR is 1, seeks are performed in the inward direction.
+
+The US0 and US1 outputs select up to 4 floppy disk drive
+units using an external decoder.
+
+RWlSEEK
+
+PS0, PS1 (Preshift 0,1)
+
+The RW/SEEK output specifies the read/write mode
+when low, and the seek mode when high.
+
+SIDE (Head Select)
+Head 1 is selected when the SIDE output is 1 (high), head
+0 is selected when SIDE is 0 (low).
+
+The PS0 and PS1 outputs are the write precompensation
+request signals for MFM mode. They determine early,
+late, and normal times for WDATA shifting.
+
+(Read/Write/Seek)
+
+GND (Ground)
+Ground.
+Vcc(+5v)
++5 V power supply.
+
+5-5
+
+NEC
+
+uPD765AIuPD765B
+Block Diagram
+
+DC
+
+Characteristics
+
+Th= -1O’C to
+
++70°C,Vcc
+__=
+
+Parameter
+
+Symbol
+
++5V%lO%
+Limits
+
+Input voltage
+
+Min
+
+Typ
+
+Max
+
+Teal
+
+-0.5
+
+Unit
+v
+
+2.0
+
+5v
+
+Conditions
+
+IOW
+
+Input voltage
+high
+
+VIH
+
+0.45
+
+V
+
+2.4
+
+kc
+
+V
+
+0.5
+
+0.65
+
+V
+
+Output voltage
+low
+Voltage
+
+Input voltage
+low (CLK +
+WCLK)
+
+v
+
+Input voltage
+high
+(CLK + WCLK)
+
+Absolute Maximum Ratings
+TA = 250C
+Power supply voltage, VCC
+
+- 0
+
+Input voltage, V1
+
+-0.5 to +7v
+
+5 to
+
+Output voltage, VO
+
+- 0 . 5 1 0 +7v
+
+Supply current
+kc)
+
+150
+140
+
+Input load
+current high
+
+10
+
+Input load
+current low
+
+-10
+
+Output leakage
+current high
+
+10
+
+Output leakage
+current low
+
+-10
+
++7v
+
+Capacitance
+
+Operating temperature, TOpT
+
+- 1OOC to +7ooc
+
+Storage temperature, TSTG
+
+-65°C to +150°C
+
+Parameter
+
+Comment: Exposing the device to stresses above those listed
+in the Absolute Maximum Ratings could cause permanent
+damage. The device should not be operated under conditions
+outside the limits described in the operational sections of this
+specification. Exposure to absolute maximum rating conditions for extended periods
+may affect device reliability.
+
+Input clock
+
+Symbol
+
+Min
+
+Limits
+Typ
+
+Input
+capacitance
+
+output
+
+COUT
+
+Test
+Conditions
+(Note 1)
+
+10
+
+pF
+
+(Note 1)
+
+20
+
+pF
+
+[Note 1)
+
+capacitance
+Note:
+(1) All pinsexcept pin under test tied to
+
+5-6
+
+Max Unit
+20
+pF
+
+AC ground.
+
+NEC
+
+uPD765A/uPD765B
+
+DIFFERENCES BETWEEN ,uPD765A AND
+uP D765B
+The uPD765B is a functionally enhanced version of the
+uPD765A.Differences are explained below.
+
+Overrun Bit [OR]
+In uPD765A, when executing a read- or write-type
+command (except READ ID and SCAN types), the
+result status OR bit is not set if there is an overrun on
+the final byte of a sector. An improvement in the
+uPD765B allows it to set the OR bit in any situation.
+
+DRQ Reset
+When an overrun occurs, the uPD765A needs DACK
+input to reset DRQ. If DACK is not available, an
+external DMA controller continues to operate even after
+the FDC enters the R-Phase (Result Phase), and stored
+result status may be transferred accidentally as ordinary
+data.
+On the other hand, the uPD765B resets DRQ automatically just before the R-Phaseentry and independent
+of the DACK input. See AC Characteristics for DRQ
+reset timing.
+
+Clock
+
+Synchronization
+
+The uPD765B does not require synchronization
+between the CLK and WCLK inputs.
+
+Version Command
+The Version command distinguishes the uPD765B
+from other devices. The ST0 response to the Version
+command is:
+Part No.
+
+ST0 Value
+
+uPD765A
+uPD765B
+
+80H
+90H
+
+5-7
+
+uPD765AIuPD7656
+AC Characteristics
+= -10 to
+
+Parameter
+
+=
+
+Symbol
+
+Clock period
+
+V
+
+Min Typ
+
+Max Unit Conditions
+
+120
+
+125
+
+500
+
+240
+
+250
+
+CLK
+ns
+
+Clock rise
+time
+Clock fall
+time
+DACK
+setup time to RO
+CS, DACK
+hold time from
+
+AW
+
+20
+
+ns
+
+Preshift
+from WCLK
+
+ns
+
+= 100
+
+85
+
+200
+
+ns
+
+Data setup time to
+
+100
+
+Data hold time from
+
+0
+
++
++ 135
+
+ns
+
+20
+
+100
+
+ns
+
+20
+
+100
+
+ns
+
+40
+
+ns
+2
+
+MFM=O
+
+Window hold time
+from RDATA
+
+15
+
+ns
+
+ns
+
+Window setup time
+to RDATA
+
+15
+
+ns
+
+ns
+
+setup time
+to SEEK
+
+12
+
+SEEK setup time
+to DIR
+
+7
+
+ns Non-DMA
+mode
+
+CLK
+Notes 4, 5
+
+Direction setup time
+to step
+hold time
+from step t
+
+5.0
+6
+
+ns
+
+Step active time
+(high)
+Step cycle time
+
+n s
+
+Fault reset
+time (high)
+
++ 135
+13
+ns (Note 4)
+140
+200
+
+ns (Note 4)
+
+7
+
+8
+
+Notes 4.5
+
+33 Note 2Note 2
+8.0
+
+10
+
+Write data width
+
+ns
++ 15
+
+TC width
+
+1
+
+Reset width
+
+14
+
+INT
+DRQ
+response time
+
+60
+
+DACK
+INT
+ineffective
+
+WCLK
+delav
+
+20
+
+1
+
+INT delay time from
+
+AA
+
+time
+
+Window cycle time
+
+width
+
+DACK width
+
+only
+
+RDATA
+time
+
+time from
+
+n s
+
+0
+
+ns
+
+ns
+
+DACK
+
+ns Note 4
+
+and
+WCLK,
+WINDOW fall time
+
+0
+
+DACK
+delav
+
+350
+
+20
+
+0
+
+DRQ
+delay
+
+250
+
+ns
+
+OACK
+hold time
+
+cycle time
+
+MFM = 1
+
+20
+
+140
+10
+
+MFM = 0
+
+8
+
+WCLK. RDATA and
+time
+WINDOW
+
+200
+
+DB to float delay
+time from
+CS. OACK
+setup time to WR I
+
+Conditions
+
+CLK
+delay
+ns
+
+WCLK
+
+Max
+
+16
+
+20
+
+0
+
+width
+
+Min Typ
+
+WCLK active time
+
+0
+
+Data access
+from
+
+Symbol
+
+CLK
+
+40
+
+Clock active
+(high, low)
+
+Parameter
+WCLK cycle time
+
+7
+
+7
+only
+
+1
+
+hold time
+after seek
+
+15
+
+CLK
+Notes 3.4.
+5
+
+SEEK hold time
+from DIR
+
+30
+
+CLK
+Notes 4, 5
+
+DIR hold time
+after step
+
+24
+
+Index pulse
+
+4
+
+AC Characteristics (cont)
+Parameter
+
+Symbol
+
+delay from DRQ
+delay
+from DRQ
+
+Min Typ (1) Max Unit Conditions
+800
+
+ns S-MHz CLK
+Note 4
+
+250
+
+ns
+12
+
+response time
+from DRQ
+Notes:
+(1) Typical values for TA = 25°C and nominal supply voltage.
+( 2 ) Under software controLThe range is from
+ms 1
+to 16ms at 8-Mhz
+clock period, and 2 ms to 32 ms at 4-Mhz clock period.
+(3) When one device is executing a SEEK operation, SENSE DRIVE
+STATUS is executed on another device.
+(4) Double these values for a 4-MHZ
+(5)
+
+Thedrivesiderating
+value.
+
+clock period
+
+has a variance of ~5Ons from the minimum
+
+liming Waveforms
+Processor Read Operation
+
+Processor
+
+Write
+CS, DACK
+
+Operation
+
+Seek
+
+liming Waveforms (Cont)
+
+Operation
+
+Data Input Waveform for AC Test (Except CLK,
+2.4
+
+0.45
+
+s
+
+Clock (WCLK,
+
+t
+
+e
+
+p
+
+Waveform for AC Test
+
+Overrun Operation
+
+Output
+
+Only)
+
+Clock
+
+Operation
+
+FLJ Reset
+I
+Fault
+
+Reset
+
+FDD Read Operation
+
+1
+FDD Write Operation
+
+Write
+
+Enable
+
+Terminal
+I
+
+0 or
+
+Write
+
+Data
+
+0
+Normal
+
+0
+
+0
+
+0
+Early
+Invalid
+
+5-10
+
+0
+
+Reset
+I
+
+Count
+
+NEC
+
+uPD765A/uPD765B
+
+liming Waveforms (Cont)
+
+Table 2. Main Status Register
+
+Write Clock
+
+No.
+
+Index
+I
+INDEX
+
+Internal
+
+Name
+
+Function
+
+DB0
+
+D0B
+(FDD 0 Busy)
+
+FDD number 0 is in the seek mode. II any
+of the DnB bits IS set FDC will not accept
+read or write command.
+
+DB1
+
+D1B
+(FDD 1 Busy)
+
+FDD number1 is in the seek mode. If any of
+the DnB bits IS set FDC will not accept read
+or write command.
+
+DB2
+
+D2B
+(FDD 2 Busy)
+
+FDD number 2 is in the seek mode If any
+of the DnB bits IS set FDC will not acceot
+read or write command
+
+DB3
+
+D3B
+(FDD 3 Busy)
+
+FDD number 3 is in the seek mode. If any
+of the DnB bits IS set FDC will not accept
+read or write command
+
+DB4
+
+CB
+(FDC Busy)
+
+A Read or Write command is in orocess.
+FDC will not accept any other command.
+
+DB5
+
+EXM
+(Execution
+
+D
+B
+6
+
+DIO
+Indicates direction of data transfer be(Data Input/Output) tween FDC and data regrster If DIO = 1,
+then transfer is from data register to the
+processor. If DIO = 0, then transfer is from
+the processor to data register.
+RQM
+Indicates data register IS ready to send or
+(Request for Master) receive data to or from the processor Both
+bits DIO and RQM should be used to perform the hand-shaking functions of
+“ready” and “directron” to the processor
+
+Mode)
+
+Registers
+
+This bit is set only during execution ohase
+in non-DMA mode When DB5 goes low,
+execution phase has ended and result
+phase has started. It operates only during
+non-DMA mode of operation
+
+contains two registers which
+The uPD765A/uPD765B
+may be accessed by the main system processor: a status register and a data register. The 8-bit main status
+register contains the status information of the FDC, and
+may be accessed at any time. The 8-bit data register
+in a
+(which actually consists of four registers, STO-ST3,
+stack with only one register presented to the data bus at
+a time), stores data, commands, parameters, and FDD
+status information. Data bytes are read out of, or written
+into, the data register in order to program or obtain the
+results after a particular command (table 3). Only the
+status register may be read and used to facilitate the
+transfer of data between the processor and uPD765A/
+uPD765B.
+
+The DIO and RQM bits in the status register indicate
+when data is ready and in which direction data will be
+transferred on the data bus. See figure 1.
+
+The relationship between the status/data registers and
+the signals RD, WR, and A0 is shown in table 1.
+
+Figure 1.
+
+Table 1. Status/Data Register Addressing
+WR
+
+A0
+
+RD
+
+0
+
+0
+
+1
+
+0
+
+1
+
+0
+
+Illegal
+
+0
+
+0
+
+0
+
+Illegal
+
+1
+
+0
+
+0
+
+Illegal
+
+1
+
+0
+
+1
+
+Read from data register
+
+1
+
+1
+
+0
+
+Write into data register
+
+Function
+
+D
+B
+7
+
+Data In/Out
+(DIO)
+
+DIO and RQM
+Out FDC and Into Processor
+Out Processor and Into FDC
+
+Read main status register
+
+II
+C
+
+The bits in the main status register are defined in
+table 2.
+
+5-l 1
+
+NEC
+
+uPD765A/uPD765B
+Table 3. Status Register Identification
+
+Table 3. Status Register Identification (cont)
+
+Pin
+NO.
+
+Name
+
+Pin
+Function
+
+Status Register 0
+D7,
+
+D6
+
+IC
+(Interrupt Code)
+
+NO.
+
+Name
+
+D7=0 and D6=0
+Normal termination of command, (NT)
+Command was completed and properly executed
+
+D2
+
+ND
+(No Data)
+
+D7=0 and D6=1
+Abnormal termination of command, (AT)
+Execution
+of command was started but
+was not successfully
+completed.
+
+During execution of the Read Diagnostic
+command. if the starting sector cannot be
+found, then this flag is set.
+
+D7=1 and D6=1
+Abnormal termination because during
+command execution the ready srgnal from
+FDD changed state
+
+D1
+
+SE
+(Seek End)
+
+When the FDC completes the Seek command, this flag IS set lo 1 (high).
+
+Do
+
+EC
+(Equipment Check)
+
+D2
+
+HD
+(Head Address)
+
+D1
+
+US:
+(Unit Select 1)
+
+If a fault srgnal IS received from the FDD, or
+if the track 0 srgnal fails to occur after 77
+step pulses (Recalibrate Command) then
+this flag is set
+When the FDD IS in the not-ready state and
+a Read or Write command IS Issued, this
+flag IS set If a Read or Write command is
+issued to side 1 of a single-sided drive,
+then this flag IS set
+This flag IS used to indicate the state of the
+head at interrupt.
+This flag IS used to indicate a drive unit
+number at interrupt.
+
+D0
+
+Us0
+(Unit Select 0)
+
+This flaa is used to Indicate a drive unit
+number at interrupt
+
+D4
+
+D3
+
+NR
+(Not Ready)
+
+NW(Not Writeable)
+
+MA
+(Missing Address
+Mark)
+
+EN
+(End of Cylinder)
+
+When the FDC tries to access a sector beyond the final sector of a cylinder, this flag
+IS s e t
+Not used. This bit is always 0 (low)
+
+DE(Data Error)
+D4
+
+D3
+
+OR
+(Overrun)
+
+This bit is set if the FDC does not detect the
+IDAM before 2 index pulses It is also set if
+the FDC cannot find the DAM or DDAM after the IDAM is found. MD bit of ST2 is also
+ser at this time.
+Not used. This bit IS alwavs 0 (low)
+
+D7
+De
+
+CM
+(Control Mark)
+
+During execution of the Read Data or Scan
+command, if the FDC encounters a sector
+which contains a deleted data address
+mark, this flag is set Also set if DAM is
+found during Read Deleted Data
+
+D5
+
+DD
+(Data Error in
+Data Field)
+
+If the FDC detects a CRC error in the data
+field then this flag is set
+
+DA
+
+W C
+(Wrong Cylinder)
+
+This bit IS related to the ND bit, and when
+the contents of C(3) on the medium is different from that stored in the IDR. this flag
+is set
+
+D3
+
+SH
+(Scan Equal Hit)
+
+During execution of the Scan command. if
+the condition of “equal” is satisfied, this
+flag is set.
+
+D2
+
+SN
+(Scan N o t S a t i s f i e d )
+
+During execution of the Scan command, if
+the F D cannot find a sector on the cylinder which meets the condition. then Cthis
+flag is set
+
+D1
+
+BC
+(Bad Cylinder)
+
+This bit is related to the ND bit. and when
+the contents of C on the medium is different from that stored in the IDR and the contents of C IS FFH. then this flag IS set
+
+Do
+
+MD
+(Missing Address
+Mark in Data Field)
+
+When data IS read from the medium, if the
+FDC cannot find a data address mark or
+deleted data address mark, then this flag
+is set
+
+When the FDC detects a CRC(1) error in either the ID field or the data field, this flag is
+set
+If the FDC is not serviced by the host system during data transfers within a certain
+time interval. this flaa is set.
+
+During execution of Write Data, Write Deleted Data or Write ID command. if the FDC
+detect: a write protect srgnal from the
+F D D . t h e n this f l a g i s S e t
+
+Status Register 2
+
+Status Register 1
+
+D7
+
+During execution of Read Data. Read Deleted Data Write Data. Write Deleted Data
+or Scan command, if the FDC cannot find
+the sector specified in the IDR(2)Register,
+this flag is set.
+During execution of the Read ID command.
+if the FDC cannot read the ID field without
+an error, then this flag IS set.
+
+D7=1 and D6=0
+Invalid command issue, (IC) Command
+which was issued was never started
+
+D65
+
+Function
+
+Status Register 1 (cont)
+
+Not used. This bit is alwavs 0 (low).
+
+NEC
+
+uPD765A/uPD765B
+
+Table 3. Status Register Identification (cont)
+Pin
+
+Command Symbol Description
+Name
+
+Function
+
+A0
+
+(Address Line 0)
+
+A0 controls selection of main status register
+(A0=0) or data register (A0= 1).
+
+C
+(Cylmder Number)
+
+C stands for the current /selected cylinder
+(track) numbers 0 through 76 of the medium
+
+This bit is used to indicate the status of the
+write protected signal from the FDD.
+
+D
+(Data)
+
+D stands for the data pattern which is going to be
+written into a sector during WRITE ID operation
+
+RY
+(Ready)
+TO
+(Track 0)
+
+This bit is used to Indicate the status of the
+ready signal from the FDD.
+
+D7-D0
+(Data Bus)
+
+8-bit data bus, where D7 stands for a most
+significant bit, and D0 s t a n d s f o r a l e a s t
+significant bit.
+
+03
+
+TS
+(Two-Side)
+
+This bit IS used to indicate the status of the
+two-side signal from the FDD.
+
+DTL
+(Data Length)
+
+When N is defined as 00. DTL stands for the data
+length which users are going to read out or write
+into the sector
+
+D2
+
+HD
+(Head Address)
+
+This bit is used to Indicate the
+status of the
+side select signal to the FDD
+
+EOT
+(End of Track)
+
+EOT stands for the final sector number on a cylinder Durmg read or write operations, FDC will stop
+data transfer after a sector number equal to EOT
+
+D1
+
+US1
+
+(Unit Select 1)
+
+This bit is used to Indicate the status of the
+unit select 1 signal to the FDD.
+
+GPL
+(Gap Length)
+
+D0
+
+US0
+(Unit Select 0)
+
+This bit is used to indicate the status of the
+unit select 0 signal to the FDD.
+
+GPL stands for the length of gap 3. During Read /
+Write commands this value determines the number of bytes that VCO sync will stay low after two
+CRC bytes During Format command it determines the size of gap 3
+
+H
+(Head Address)
+
+H stands for the logical
+specified in ID field
+
+HD(Head)
+
+HD stands for a the physical head number 0 or 1
+and controls the polarity of pin 27 (H = HD in all
+command words )
+
+HLT
+(Head Load Time)
+
+HLT stands for the head load time in the FDD (2 to
+254 ms in 2 ms Increments).
+
+HUT
+(Head Unload Time)
+
+HUT stands for the head unload time after a Read
+or Write operation has occurred (16 to 240 ms in
+16 ms Increments)
+
+MF
+(FM or MFM Mode)
+
+If MF IS low, FM mode IS selected, and if it is high,
+M F M m o d e IS s e l e c t e d
+
+MT
+(Multitrack)
+
+IF MT is high, a multitrack operation IS performed If MT = 1 after finishing read/write operation on siude 0. FDC will automatically
+start
+searching for sector 1 on side 1
+
+N
+
+N stands for the number of data bvtes written in a
+sector
+
+NC.
+
+Name
+
+Function
+
+FT
+(Fault)
+WP
+(Write Protected)
+
+This bit is used to indicate the status of the
+fault signal from the FDD.
+
+Status Register 3
+
+D7
+D6
+D56
+D4
+
+This bit IS used to indicate the status of the
+track 0 signal from the FDD.
+
+Note:
+(1) CRC = Cyclic Redundancy Check
+(2) IDR = Internal Data Register
+(3) Cylinder (C) is described more fully in the Command Symbol
+
+Description.
+
+Command
+
+Sequence
+
+The uPD765A/uPD765B
+is capable of performing 15 different commands. Each command is initiated by a
+multibyte transfer from the processor, and the result after execution of the command may also be a multibyte
+transfer back to the processor. Because of this multibyte interchange of information between the uPD765A/
+uPD765B and the processor, it is convenient to consider
+each command as consisting of three phases:
+Command
+Phase:
+
+The FDC receives all information required to perform a particular operation from the processor.
+
+(Number)
+
+head number 0 or 1. as
+
+Execution
+Phase:
+
+The FDC performs the operation it
+was instructed to do.
+
+NCN
+
+(New Cylinder Number)
+
+NCN stands for a new cylinder number which is
+going to be reached as a result of the seek operation; desired position of head
+
+Result Phase:
+
+After completion of the operation,
+status and other housekeeping information are made available to the
+processor.
+
+ND
+(Non-DMA Mode)
+
+ND stands for operation in the non-DMA mode
+
+Table 4 shows the required preset parameters and
+results for each command. Most commands require 9
+command bytes and return 7 bytes during the result
+phase. The “W” to the left of each byte indicates a command phase byte to be written, and an “R” indicates a
+result byte. The definitions of other abbriviations used
+in table are given in the Command Symbol Description
+table.
+
+PCN
+PCN stands for the cylinder number at the
+(Present Cylinder Number) completion of Sense Interrupt Status command,
+position of head at present time
+R
+[Record)
+
+R stands for the sector number which
+or written
+
+will be read
+
+R/W
+(Read/Write)
+
+R/W stands for either Read (R) or Write (W)
+signal
+
+SC
+(Sector)
+
+SC indicates the number of sectors per cylinder
+
+SK
+(Skip)
+
+SK stands for skip deleted data address mark
+
+5-13
+
+uPD765A/ uPD765B
+Command Symbol Description (cont)
+
+Command Symbol Description (cont)
+
+SRT
+(Step Rate Time)
+
+SRT stands for the steooino rate for the FDD (1 to
+16 ms in 1 ms increments). Stepping rate applies
+to all drives (FH=1ms,
+EH=2ms, etc.).
+
+STO-ST3
+(Status O-3)
+
+STO-ST3 stands for one of four registers which
+store the status information after a command has
+been executed. This information IS available during the result phase after command execution.
+These registers should not be confused with the
+main status register (selected by Ao=O).
+STO-ST3 may be read only after a command has
+been executed and contains information relevant
+to that particular command
+
+Name
+
+Function
+
+STP
+
+During a scan operation if STP=1, the data in
+contiguous sectors is compared byte by byte with
+data sent from the processor (or DMA); and if
+STP=2, then alternate sectorsare read and compared
+
+US0, US1
+(Unit Select)
+
+US stands for a selected drive number 0 or
+
+3
+
+Table 4. Instruction Set (Notes 1,2)
+Instruction Code
+Phase
+
+R/W
+
+D7
+
+D6
+
+D5
+
+w
+W
+W
+W
+w
+W
+W
+w
+
+MT
+X
+
+MF
+X
+
+X
+
+D4
+
+D3
+
+D2
+
+D1
+
+D0
+
+1
+
+0
+US0
+
+Remarks
+
+Read Data
+
+Command
+
+SK
+
+0
+
+0
+
+X
+
+X
+
+1
+HD
+
+US1
+
+C
+H
+R
+N
+EOT
+GQL
+DTL
+
+w
+
+Command codes
+(Note 3)
+Sector ID
+prior to command execution
+are compared against header on floppy disk.
+
+The 4 bytes
+
+Data transfer between the FDD and main system
+
+Execution
+Result
+
+ST0
+ST1
+ST2
+C
+H
+R
+
+R
+
+R
+
+N
+
+Status Information after command execution
+Sector ID Information after command execution
+
+R e a d D e l e t e d Data
+Command
+
+W
+W
+W
+W
+W
+
+MT
+X
+
+MF
+X
+
+SK
+X
+
+0
+
+1
+
+X
+
+X
+
+1
+HD
+
+C
+H
+R
+
+w
+
+N
+
+W
+W
+W
+
+EOT
+GPL
+DTL
+
+0
+US,
+
+0
+US0
+
+Command codes
+Sector ID rnformation
+to command execution
+are compared against header on floppy disk
+
+Data transfer between the FDD and main system
+
+Execution
+Result
+
+R
+RR
+
+ST0
+ST1
+ST2
+
+Status information after command execution
+
+C
+
+Sector ID information after command execution
+
+H
+R
+N
+
+Note:
+
+(1) Symbols used in this table are described at the end of this section
+(2) A0 should equal 1 for all operations.
+(3) X = Don’t care, usually made to equal 0.
+
+The 4 bytes
+
+NEC
+
+uPD765A/uPD765B
+
+Table 4. Instruction Set (Notes 1,2) (cont)
+instruction Code
+Remarks
+
+Phase
+Write Data
+Command
+
+W
+W
+W
+
+MT
+X
+
+MF
+
+0
+
+X
+
+X
+
+0
+X
+-
+
+1
+
+0
+
+1
+
+Command codes
+
+HD
+
+c
+H
+R
+
+W
+W
+W
+
+0
+X
+
+Sector ID information prior to command execution. The 4
+are compared against header on floppy
+
+EOT
+GPL
+DTL
+Data transfer between the main system and FDD
+Status
+ST2
+C
+H
+
+R
+R
+
+after command execution
+
+Sector ID information after command execution
+
+N
+
+Write Deleted Data
+Command
+
+W
+W
+W
+W
+W
+
+MT
+X
+
+-
+
+p
+
+MF
+0
+0
+X
+X
+X
+X
+C
+-
+
+-
+
+-
+
+-
+
+-
+
+W
+w
+
+w
+
+1
+
+0
+HD
+
+1
+
+Sector Information prior to
+are compared against header on floppy disk
+
+The 4 bytes
+
+R
+N
+EOT
+GPL
+DTL
+Data transfer between the FDD and main system
+
+Execution
+Result
+
+Status information after command execution
+ST1
+ST2
+C
+H
+
+w
+W
+W
+W
+
+w
+W
+W
+W
+
+w
+
+Sector ID information after command execution
+
+N
+
+R
+Read Diagnostic
+Command
+
+Command codes
+
+US,
+
+0
+X
+
+MF
+X
+
+SK
+X
+
+0
+
+0
+
+X
+
+X
+
+0
+
+1
+
+0
+
+Command codes
+
+HD
+Sector
+
+prior to command execution
+
+H
+R
+N
+EOT
+GPL
+DTL
+Data transfer between the FDD and main system
+data fields from index hole to EDT.
+
+FDC reads all
+
+Status information after command execution
+
+Result
+ST1
+ST2
+C
+H
+
+Sector ID Information after command
+
+N
+
+5-15
+
+Table 4.
+
+Set (Notes
+instruction Code
+Remarks
+
+Read
+Command
+
+W
+W
+
+0
+X
+
+MF
+X
+
+0
+X
+
+0
+
+1
+
+X
+
+X
+
+0
+HD
+
+Command codes
+US,
+
+Executron
+
+The first correct ID
+register.
+
+on the cylinder stored
+
+data
+
+Status information after command execution
+ST1
+ST2
+C
+H
+
+Sector ID
+
+read during executron phase from floppy
+
+N
+ID
+Command
+
+W
+
+w
+
+1
+
+MF
+
+X
+
+X
+
+X
+
+X
+
+W
+W
+W
+W
+
+1
+
+X
+
+HD
+
+1
+
+C o m m a n d codes
+
+US,
+
+N
+SC
+GPL
+
+Bytes/sector
+Sectors/track
+Gap3
+byte
+FDC formats an entire track.
+
+Result
+
+Status information after command execution
+ST1
+ST2
+C
+H
+R N
+
+R
+
+In this case, the ID
+
+has no
+
+Scan Equal
+Command
+
+W
+W
+W
+W
+
+MT
+X
+
+SK
+X
+
+X
+
+1
+
+0
+
+X
+
+X
+C
+H
+
+0
+
+0
+US,
+
+1
+
+Command codes
+Sector
+
+command execution
+
+w
+W
+W
+
+w
+W
+
+EOT
+GPL
+STQ
+
+Execution
+
+Data
+
+Result
+
+Status
+ST1
+ST2
+C
+H
+fl
+N
+
+Note:
+(1) Symbols used
+this table are described at the end of this section
+should equal 1 for all operations.
+(3) X
+Don’t care, usually made to equal 0.
+
+5-16
+
+between the
+
+and main
+
+after command execution
+
+Sector ID information after command
+
+Table 4. Instruction Set (Notes
+code
+Phase
+
+Scan
+
+Remarks
+
+or
+
+Command
+
+MT
+X
+
+MF
+SK
+X
+X
+X
+
+1
+
+1
+X
+
+0
+HD
+
+0
+US,
+
+1
+
+Command codes
+Sector ID
+
+C
+H
+
+to command
+
+N
+EOT
+GPL
+STP
+Data comoared between the FDD and
+Result
+
+Status
+ST1
+ST2
+C
+
+Scan High
+
+command execution
+
+Sector ID Information after command
+
+R
+N
+
+R
+
+after
+
+-
+
+Equal
+
+Command
+
+W
+w
+w
+w
+W
+W
+W
+W
+w
+
+MT
+X
+
+MF
+X
+
+SK
+X
+
+1
+X
+
+1
+
+1
+
+X
+
+0
+US,
+
+Command codes
+
+C
+
+Sector ID information prior to command execution
+
+N
+EDT
+GPL
+STP
+
+Execution
+
+Data compared between the FDD and
+
+Result
+
+Status Information after command
+ST1
+ST2
+C
+H
+R
+
+system
+
+Sector ID information after command
+-
+
+R
+Command
+
+W
+W
+
+o
+x
+
+0
+x
+
+0
+x
+
+D
+
+1
+
+x
+
+x
+
+1
+
+Command codes
+
+0
+Head retracted to track 0
+
+Sense Interrupt Status
+Command
+
+w
+
+0
+
+0
+
+0
+
+0
+
+1
+
+0
+
+0
+
+0
+
+Result
+
+Command codes
+Status Information about the FDC at the end of seek
+
+PCN
+Specify
+Command
+
+W
+W
+W
+
+0
+
+W
+W
+
+0
+X
+
+0
+
+0
+
+0
+
+0
+
+0
+
+SRT
+
+1
+
+1
+
+Command codes
+
+HUT
+HLT
+
+ND
+
+Sense Drive Status
+Command
+Result
+
+0
+X
+
+0
+X
+
+0
+X
+
+D
+X
+ST3
+
+HD
+
+0
+US,
+
+0
+
+Command codes
+Status
+
+about FDD
+
+5-17
+
+Table 4. Instruction Set (Notes I,
+
+Version
+Command
+
+w
+
+x
+
+x
+
+x
+
+1
+
+0
+
+0
+
+0
+
+0
+
+Command codes
+Indicates 7658
+indicates
+
+Seek
+Command
+
+W
+W
+W
+
+0
+X
+
+0
+X
+
+0
+X
+
+0
+X
+
+1
+X
+NCN
+
+1
+HD
+
+Execution
+
+1
+US,
+
+1
+
+Command c o d e
+
+Head IS positioned over proper cylinder on diskette
+
+Invalid
+Command
+
+W
+
+Codes
+
+Note:
+(1) Symbols used in this table are described at the end of this section.
+(2)
+should equal 1 for all operations.
+(3)
+Don’t care, usually made to equal 0.
+
+System Configuration
+Figure 2 shows an example of a system using a
+
+Figure 2. System Configuration
+
+5-18
+
+Invalid Command codes (No op-
+
+goes
+
+state)
+
+Data Format
+Figure 3 shows the data transfer format for
+and
+in FM and MFM modes. Figure 4 shows
+VCO Sync timing.
+Figure 3. Data Format
+[FM Mode]
+
+[MFM Mode]
+
+Figure 4. VCO Sync Timing
+
+

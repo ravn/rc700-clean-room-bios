@@ -13,3 +13,4 @@
 - [Work autonomously](feedback_autonomous.md) — Do everything, ask as little as possible
 - [CP/M layout](reference_cpm_layout.md) — RC702 CP/M memory map and disk layout from jbox.dk
 - [MAME skip gameinfo](../../../.claude/projects/-Users-ravn-git-rc700-cleanroom-bios/memory/feedback_mame_skip_gameinfo.md) — Always use -skip_gameinfo when running MAME from scripts
+- [Use Docker](../../../.claude/projects/-Users-ravn-git-rc700-cleanroom-bios/memory/feedback_use_docker.md) — Use Docker for missing binaries, don't install packages

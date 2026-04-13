@@ -239,8 +239,12 @@ void bios_boot(void) {
     keyboard_init(&keyboard);
     floppy_init(&floppy_state);
 
-    /* Step 4: FDC — the PROM already sent SPECIFY.
-     * Recalibrate drive 0 to get to a known state. */
+    /* Step 4: FDC init — per working BIOS:
+     * 1. Wait for MSR bits 4:0 to clear (FDC idle)
+     * 2. SPECIFY (PROM already did this but be safe)
+     * 3. Recalibrate drive 0 */
+    fdc_wait_idle();
+    fdc_specify(0x4F, 0x20);  /* SRT=4ms, HUT=240ms, HLT=16ms, DMA mode */
     fdc_recalibrate(&floppy_state, 0);
 
     /* Step 5: Remaining setup */

@@ -55,7 +55,23 @@
       "Bash($ZMAC:*)",
       "Bash(xxd /Users/ravn/git/rc700-cleanroom-bios/cpm/bdos.asm)",
       "Bash(xxd)",
-      "Bash(build/native/test/test_interrupt)"
+      "Bash(build/native/test/test_interrupt)",
+      "Bash(export PATH=\"/opt/homebrew/bin:/usr/local/bin:$PATH\")",
+      "Bash(/Applications/CLion.app/Contents/bin/cmake/mac/aarch64/bin/cmake --build --preset native)",
+      "Bash(/Applications/CLion.app/Contents/bin/cmake/mac/aarch64/bin/ctest:*)",
+      "Bash(bash:*)",
+      "Bash(./mame rc702:*)",
+      "Bash(ls /tmp/rc702_test*)",
+      "Bash(ls /tmp/snap/)",
+      "Bash(./mame -createconfig)",
+      "Bash(ls:*)",
+      "Bash(./mame -help)",
+      "Bash(./mame -showusage)",
+      "Bash(sort -t= -k2)",
+      "Bash(sort -t= -k2 -r)",
+      "Bash(awk -F'[=;]' '{gsub\\(/^ +| +$/,\"\",$2\\); print $2, $1}')",
+      "Bash(perl -e 'alarm 10; exec @ARGV' build/native/test/test_floppy)",
+      "Bash(echo \"exit=$?\")"
     ]
   },
   "prefersReducedMotion": true

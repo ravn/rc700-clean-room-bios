@@ -13,7 +13,9 @@ void hal_out(byte port, byte value) {
     (void)value;
     __asm
         ; sdcccall(1): port in A, value in L
+        ; B must be 0 — OUT (C),A uses B:C as 16-bit I/O address.
         ld c, a         ; C = port
+        ld b, #0        ; B = 0
         ld a, l         ; A = value
         out (c), a
     __endasm;
