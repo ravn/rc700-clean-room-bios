@@ -51,9 +51,11 @@ typedef struct {
     byte  adr0;       /* first coordinate saved between bytes */
     byte  adrmod;     /* 0=XY (col,row), 1=YX (row,col) */
 
-    /* Background mode */
+    /* Background mode — stubbed out with CONSOLE_NO_BGMAP to save ~400 bytes */
+#ifndef CONSOLE_NO_BGMAP
     byte  bg_flag;    /* BG_OFF, BG_FOREGROUND, BG_BACKGROUND */
     byte  bgmap[BGMAP_SIZE];
+#endif
 
     /* Cursor dirty flag (for deferred 8275 update) */
     byte  cursor_dirty;

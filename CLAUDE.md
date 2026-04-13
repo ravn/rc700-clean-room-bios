@@ -16,12 +16,14 @@ The Z80 BIOS binary including configuration blocks must fit in **track 0** of th
 
 ## Build Commands
 
+cmake is bundled with CLion (not installed system-wide):
 ```bash
-cmake --preset native          # Configure native build (host tests)
-cmake --build --preset native  # Build
-ctest --preset native          # Run tests
-scripts/z80-build.sh           # Cross-compile to Z80 via Docker (z88dk/zsdcc)
-scripts/z80-ticks.sh <binary>  # Run Z80 binary in ticks simulator
+CMAKE=/Applications/CLion.app/Contents/bin/cmake/mac/aarch64/bin/cmake
+$CMAKE --preset native          # Configure native build (host tests)
+$CMAKE --build --preset native  # Build
+ctest --test-dir build/native   # Run tests
+scripts/z80-build.sh            # Cross-compile to Z80 via Docker (z88dk/zsdcc)
+scripts/z80-ticks.sh <binary>   # Run Z80 binary in ticks simulator
 ```
 
 CLion: open the project and select the "Native (Host Tests)" preset.

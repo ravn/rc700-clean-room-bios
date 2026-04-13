@@ -22,11 +22,13 @@ void hal_out(byte port, byte value) {
 byte hal_in(byte port) {
     (void)port;
     __asm
-        ; sdcccall(1): port in A, return in L
+        ; sdcccall(1): port in A, return in A.
+        ; B must be 0 — IN A,(C) uses B:C as 16-bit I/O address.
         ld c, a         ; C = port
-        in l, (c)       ; L = result
+        ld b, #0        ; B = 0 (high byte of port address)
+        in a, (c)       ; A = IN(0x00:port)
+        ld l, a         ; L = A — covers both return conventions
     __endasm;
-    return 0;  /* unreachable — silences warning */
 }
 
 void hal_di(void) {

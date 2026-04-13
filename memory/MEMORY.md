@@ -12,3 +12,4 @@
 - [IM2 page alignment](feedback_im2_page_boundary.md) — Vector table must be at 256-byte boundary, I register = high byte
 - [Work autonomously](feedback_autonomous.md) — Do everything, ask as little as possible
 - [CP/M layout](reference_cpm_layout.md) — RC702 CP/M memory map and disk layout from jbox.dk
+- [MAME skip gameinfo](../../../.claude/projects/-Users-ravn-git-rc700-cleanroom-bios/memory/feedback_mame_skip_gameinfo.md) — Always use -skip_gameinfo when running MAME from scripts

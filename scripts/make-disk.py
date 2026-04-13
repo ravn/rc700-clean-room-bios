@@ -118,37 +118,59 @@ def rebuild_imd(header, tracks):
 def make_loader_stub(bios_size):
     """Create a Z80 relocator stub that copies BIOS to 0xC000.
 
-    The stub is loaded at 0x0280 by the ROA375 PROM.
-    It copies bios_size bytes from (0x0280 + stub_length) to 0xC000,
-    then jumps to 0xC000.
+    The PROM loads all of track 0 into memory:
+      Head 0: sectors 1-26 at 128B each → 0x0000-0x0CFF
+      Head 1: sectors 1-26 at 256B each → 0x0D00-0x26FF
+    The stub at 0x0280 (sector 6) copies both head 0 and head 1
+    payload to 0xC000, then jumps there.
 
-    Machine code (15 bytes):
+    Machine code (32 bytes):
       F3           DI
-      21 xx xx     LD HL, source
-      11 00 DA     LD DE, 0xC000
-      01 xx xx     LD BC, count
+      ; Copy head 0 payload (sectors 6-26, after stub)
+      21 xx xx     LD HL, src1
+      11 00 C0     LD DE, 0xC000
+      01 xx xx     LD BC, count1
       ED B0        LDIR
-      C3 00 DA     JP 0xC000
+      ; Copy head 1 payload (sectors 1-26 at 0x0D00)
+      21 00 0D     LD HL, 0x0D00
+      ; DE already points to continuation address
+      01 xx xx     LD BC, count2
+      ED B0        LDIR
+      31 00 F5     LD SP, 0xF500
+      FB           EI
+      C3 00 C0     JP 0xC000
     """
-    # Simple loader: just copy head 0 data to 0xC000 and jump.
-    # TODO: add FDC read for head 1 once basic boot works.
-    STUB_LEN = 19  # DI(1) + LD HL(3) + LD DE(3) + LD BC(3) + LDIR(2) + LD SP(3) + EI(1) + JP(3)
-    LOADER_MAX = 2688  # sectors 6-26 head 0
-    head0_data_size = min(bios_size, LOADER_MAX - STUB_LEN)
-    src_addr = 0x0280 + STUB_LEN
+    STUB_LEN = 32
+    HEAD0_MAX = 2688  # sectors 6-26 head 0, 21 x 128 bytes
+    HEAD1_MAX = 6656  # sectors 1-26 head 1, 26 x 256 bytes
+    head0_data_size = min(bios_size, HEAD0_MAX - STUB_LEN)
+    remaining = bios_size - head0_data_size
+    head1_data_size = min(max(remaining, 0), HEAD1_MAX)
+    src1_addr = 0x0280 + STUB_LEN
 
     stub = bytearray([
-        0xF3,                                       # DI
-        0x21, src_addr & 0xFF, (src_addr >> 8) & 0xFF,  # LD HL, src
-        0x11, 0x00, 0xC0,                           # LD DE, 0xC000
-        0x01, head0_data_size & 0xFF, (head0_data_size >> 8) & 0xFF,  # LD BC, size
-        0xED, 0xB0,                                 # LDIR
-        0x31, 0x00, 0xF5,                           # LD SP, 0xF500
-        0xFB,                                       # EI
-        0xC3, 0x00, 0xC0,                           # JP 0xC000
+        0xF3,                                           # DI
+        # Copy head 0 payload
+        0x21, src1_addr & 0xFF, (src1_addr >> 8) & 0xFF, # LD HL, src1
+        0x11, 0x00, 0xC0,                               # LD DE, 0xC000
+        0x01, head0_data_size & 0xFF, (head0_data_size >> 8) & 0xFF, # LD BC, count1
+        0xED, 0xB0,                                     # LDIR
+        # Copy head 1 payload
+        0x21, 0x00, 0x0D,                               # LD HL, 0x0D00
+        # DE is already at 0xC000 + head0_data_size
+        0x01, head1_data_size & 0xFF, (head1_data_size >> 8) & 0xFF, # LD BC, count2
+        0xED, 0xB0,                                     # LDIR
+        # Jump to BIOS
+        0x31, 0x00, 0xF5,                               # LD SP, 0xF500
+        0xFB,                                           # EI
+        0xC3, 0x00, 0xC0,                               # JP 0xC000
     ])
+    # Pad to STUB_LEN
+    while len(stub) < STUB_LEN:
+        stub.append(0x00)
     assert len(stub) == STUB_LEN
-    print(f"  Simple loader: {STUB_LEN} bytes, head0 data: {head0_data_size} bytes")
+    total = head0_data_size + head1_data_size
+    print(f"  Loader: {STUB_LEN} bytes, head0: {head0_data_size}B + head1: {head1_data_size}B = {total}B")
     return bytes(stub)
 
 

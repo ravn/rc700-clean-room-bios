@@ -18,6 +18,7 @@
 #include "dpb.h"
 #include "imd.h"
 #include "fdc_imd_adapter.h"
+#include "interrupt.h"
 #include "hal.h"
 
 #ifndef TEST_IMAGE

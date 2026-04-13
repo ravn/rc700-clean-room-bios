@@ -83,8 +83,6 @@ void isr_display_refresh(void) {
 /* ---- Floppy Complete ISR (Section 4.2) ---- */
 
 void isr_floppy_complete(void) {
-    fdc_isr_state.complete = 0xFF;
-
     /* Short delay (5 iterations) */
     for (int i = 0; i < 5; i++)
         (void)hal_in(0x04);
@@ -104,6 +102,8 @@ void isr_floppy_complete(void) {
         fdc_isr_state.st0 = hal_in(0x05);
         (void)hal_in(0x05);  /* PCN */
     }
+
+    fdc_isr_state.complete = 0xFF;
 }
 
 /* ---- Dummy ISR ---- */

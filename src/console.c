@@ -18,7 +18,7 @@ static void scroll_up(console_t *con) {
     memset(&con->display[(SCREEN_ROWS - 1) * SCREEN_COLS],
            0x20, SCREEN_COLS);
 
-    /* Scroll background bitmap if active */
+#ifndef CONSOLE_NO_BGMAP
     if (con->bg_flag != BG_OFF) {
         memmove(&con->bgmap[0],
                 &con->bgmap[BGMAP_BYTES_PER_ROW],
@@ -26,12 +26,15 @@ static void scroll_up(console_t *con) {
         memset(&con->bgmap[(SCREEN_ROWS - 1) * BGMAP_BYTES_PER_ROW],
                0, BGMAP_BYTES_PER_ROW);
     }
+#endif
 }
 
+#ifndef CONSOLE_NO_BGMAP
 static void set_bgmap_bit(console_t *con, byte col, byte row) {
     word bit_index = (word)row * SCREEN_COLS + col;
     con->bgmap[bit_index >> 3] |= (byte)(0x80 >> (bit_index & 7));
 }
+#endif
 
 void console_init(console_t *con, byte *display_buf) {
     byte *saved_display = display_buf;
@@ -43,7 +46,9 @@ void console_init(console_t *con, byte *display_buf) {
 
 void console_clear_screen(console_t *con) {
     memset(con->display, 0x20, SCREEN_SIZE);
+#ifndef CONSOLE_NO_BGMAP
     memset(con->bgmap, 0, BGMAP_SIZE);
+#endif
     set_cursor(con, 0, 0);
 }
 
@@ -130,7 +135,7 @@ void console_insert_line(console_t *con) {
     /* Clear cursor row */
     memset(&con->display[cursor_row_offset], 0x20, SCREEN_COLS);
 
-    /* Scroll background bitmap if active */
+#ifndef CONSOLE_NO_BGMAP
     if (con->bg_flag != BG_OFF) {
         byte bg_row = con->cursy;
         word bg_src = (word)(SCREEN_ROWS - 2) * BGMAP_BYTES_PER_ROW;
@@ -141,6 +146,7 @@ void console_insert_line(console_t *con) {
         }
         memset(&con->bgmap[bg_cursor], 0, BGMAP_BYTES_PER_ROW);
     }
+#endif
 
     (void)dst;
 }
@@ -156,7 +162,7 @@ void console_delete_line(console_t *con) {
     /* Clear row 24 */
     memset(&con->display[last_row], 0x20, SCREEN_COLS);
 
-    /* Scroll background bitmap if active */
+#ifndef CONSOLE_NO_BGMAP
     if (con->bg_flag != BG_OFF) {
         byte bg_row = con->cursy;
         word bg_cursor = (word)bg_row * BGMAP_BYTES_PER_ROW;
@@ -167,18 +173,28 @@ void console_delete_line(console_t *con) {
         }
         memset(&con->bgmap[bg_last], 0, BGMAP_BYTES_PER_ROW);
     }
+#endif
 }
 
 void console_enter_background(console_t *con) {
+#ifndef CONSOLE_NO_BGMAP
     con->bg_flag = BG_BACKGROUND;
     memset(con->bgmap, 0, BGMAP_SIZE);
+#else
+    (void)con;
+#endif
 }
 
 void console_enter_foreground(console_t *con) {
+#ifndef CONSOLE_NO_BGMAP
     con->bg_flag = BG_FOREGROUND;
+#else
+    (void)con;
+#endif
 }
 
 void console_clear_foreground(console_t *con) {
+#ifndef CONSOLE_NO_BGMAP
     /* Erase positions where the background bitmap bit is NOT set */
     for (word i = 0; i < SCREEN_SIZE; i++) {
         byte bm = con->bgmap[i >> 3];
@@ -186,6 +202,9 @@ void console_clear_foreground(console_t *con) {
         if (!(bm & mask))
             con->display[i] = 0x20;
     }
+#else
+    (void)con;
+#endif
 }
 
 /* Process XY escape coordinate bytes */
@@ -224,8 +243,10 @@ static void put_printable(console_t *con, byte ch) {
     word pos = con->cury + con->curx;
     con->display[pos] = ch;
 
+#ifndef CONSOLE_NO_BGMAP
     if (con->bg_flag == BG_BACKGROUND)
         set_bgmap_bit(con, con->curx, con->cursy);
+#endif
 
     console_cursor_right(con);
 }

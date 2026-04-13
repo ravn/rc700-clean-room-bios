@@ -9,16 +9,18 @@ void floppy_init(floppy_t *fl) {
     fl->erflag = 0;
 }
 
-/* Wait for RQM=1 and DIO=0 (ready to accept command byte) */
+/* Wait for RQM=1 and DIO=0 (ready to accept command byte).
+ * hal_ei() between iterations ensures ISRs can fire and
+ * gives the DMA controller bus cycles for display refresh. */
 static void wait_rqm_write(void) {
     while ((hal_in(FDC_MSR_PORT) & (MSR_RQM | MSR_DIO)) != MSR_RQM)
-        ;
+        hal_ei();
 }
 
 /* Wait for RQM=1 and DIO=1 (result byte available) */
 static void wait_rqm_read(void) {
     while ((hal_in(FDC_MSR_PORT) & (MSR_RQM | MSR_DIO)) != (MSR_RQM | MSR_DIO))
-        ;
+        hal_ei();
 }
 
 void fdc_send_byte(byte val) {
@@ -54,13 +56,26 @@ void fdc_sense_interrupt(byte *st0, byte *pcn) {
     *pcn = fdc_read_byte();
 }
 
-void fdc_recalibrate(floppy_t *fl, byte drive) {
-    fdc_send_byte(FDC_CMD_RECALIBRATE);
-    fdc_send_byte(drive & 0x03);
+/* RECALIBRATE and SEEK use polling: after the command is sent,
+ * poll MSR via fdc_sense_interrupt. The FDC won't show RQM until
+ * the seek completes, so this naturally waits. */
+/* Wait for FDC seek/recalibrate to complete.
+ * After SEEK/RECALIBRATE, the FDC sets RQM when the seek finishes.
+ * The drive busy bit (D0-D3) stays set until SENSE INTERRUPT clears it. */
+static void fdc_wait_seek_done(floppy_t *fl) {
+    /* Wait for RQM (FDC ready for command) */
+    wait_rqm_write();
 
+    /* Issue SENSE INTERRUPT to clear the drive busy bit and get status */
     byte st0, pcn;
     fdc_sense_interrupt(&st0, &pcn);
     fl->last_st0 = st0;
+}
+
+void fdc_recalibrate(floppy_t *fl, byte drive) {
+    fdc_send_byte(FDC_CMD_RECALIBRATE);
+    fdc_send_byte(drive & 0x03);
+    fdc_wait_seek_done(fl);
     fl->current_track = 0;
 }
 
@@ -68,10 +83,7 @@ void fdc_seek(floppy_t *fl, byte drive, byte cylinder) {
     fdc_send_byte(FDC_CMD_SEEK);
     fdc_send_byte(drive & 0x03);
     fdc_send_byte(cylinder);
-
-    byte st0, pcn;
-    fdc_sense_interrupt(&st0, &pcn);
-    fl->last_st0 = st0;
+    fdc_wait_seek_done(fl);
     fl->current_track = cylinder;
 }
 
@@ -86,6 +98,9 @@ void dma_setup(word addr, word count, byte mode) {
     hal_out(DMA_MASK_PORT, 0x01);           /* unmask channel 1 */
 }
 
+/* READ/WRITE use polling: after sending command bytes, poll MSR
+ * for the result phase (wait_rqm_read waits for RQM+DIO). The FDC
+ * won't show RQM until the DMA transfer completes. */
 int floppy_read_sector(floppy_t *fl, byte drive, byte cylinder, byte head,
                        byte sector, const fdf_t *fdf, word dma_addr) {
     /* Seek if needed */
@@ -109,7 +124,7 @@ int floppy_read_sector(floppy_t *fl, byte drive, byte cylinder, byte head,
     fdc_send_byte(fdf->gap);
     fdc_send_byte((byte)(fdf->n == 0 ? 0x80 : 0xFF));
 
-    /* Read results */
+    /* Poll for results — wait_rqm_read blocks until DMA is done */
     byte st0, st1, st2, rc, rh, rr, rn;
     fdc_read_results(&st0, &st1, &st2, &rc, &rh, &rr, &rn);
 

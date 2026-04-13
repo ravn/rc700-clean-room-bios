@@ -30,48 +30,47 @@
 17. [x] CCP+BDOS assembled for CCP=0xAA00, BDOS=0xB200
 18. [x] CCP+BDOS written to track 1
 19. [x] Warm boot code wired (reads track 1, installs vectors, jumps to CCP)
-20. [ ] FDC interrupt-driven completion (#2) — **blocking warm boot**
-21. [ ] Keyboard input from MAME
-22. [ ] CP/M `A>` prompt working in MAME
+20. [x] Two-phase loader (head 0 + head 1 data from track 0)
+21. [x] hal_in bug fixed (return 0 clobbered port read result)
+22. [x] Background bitmap stubbed out (-DCONSOLE_NO_BGMAP) — 355 bytes saved
+23. [x] FDC recalibrate/seek with polling (wait_rqm + SENSE INTERRUPT)
+24. [x] Display stable during FDC polling (hal_ei in wait loops)
+25. [ ] FDC READ DATA command — **blocking warm boot** (#6)
+26. [ ] Keyboard input from MAME
+27. [ ] CP/M `A>` prompt working in MAME
 
 ## Known Issues
 
+### hal_in sdcccall(1) return convention (#1 resolved)
+The original `hal_in` had `return 0;` which generated `LD A,#0` — clobbering
+the IN result. Fixed by using `IN A,(C)` + `LD L,A` with no return statement.
+
 ### SDCC code generation bug
-SDCC (z88dk zsdcc) generates incorrect code for inline expressions
-passed as function parameters:
-```c
-hal_out(0xF4, (byte)(disp_addr >> 8));  // HIGH BYTE LOST
-```
-The shift result is dropped during stack-based parameter passing.
-Workaround: pre-compute into local variables before calling.
-TODO: File upstream bug report.
+SDCC generates incorrect code for inline expressions passed as function
+parameters. Workaround: pre-compute into local variables.
 
 ### CONFI PAR3/PAR4 values differ from PROM
-The CONFI default CRT parameters (PAR3=0x7A, PAR4=0x6D) differ from
-what the PROM uses (PAR3=0x9A, PAR4=0x5D). The PROM values work;
-the CONFI values break the display. Need to investigate which is
-correct for the physical hardware. Currently skipping 8275 reset
-and relying on PROM's configuration.
+The CONFI default CRT parameters differ from the PROM's. Currently relying
+on PROM's configuration.
 
-### BIOS too large for 0xDA00
-BIOS code+rodata = 8,662 bytes (with sdcccall(1)). Original BIOS
-fits in ~5KB at 0xDA00. Currently using 0xC000 as temporary base.
-Need to optimize to fit at 0xDA00 for standard CP/M memory map.
+### BIOS size
+Code+rodata = 8,290 bytes with bgmap stubbed. Fits in track 0 (9,312 byte
+capacity) with 1,022 bytes margin. Still too large for 0xDA00 (target ~5.2KB).
 
 ### hw_init_all disabled
-Hardware initialization (PIO/CTC/SIO/DMA/FDC/8275) is currently
-skipped because the PROM already configured everything. Need to
-enable for standalone boot (without PROM).
+Hardware initialization skipped — PROM handles it.
 
 ## Open Issues
 
-- #1 SDCC code generation bug (inline shift in params) — workaround applied
-- #2 Floppy driver needs interrupt-driven completion — **next priority**
+- #1 ~~hal_in return bug~~ FIXED
+- #2 ~~FDC interrupt-driven completion~~ Changed to polling approach
 - #3 8275 CRT parameters differ between PROM and CONFI defaults
-- #4 BIOS too large for 0xDA00 (8.8KB vs 5.2KB target)
+- #4 BIOS too large for 0xDA00 (8.3KB vs 5.2KB target)
 - #5 Automate disk image build
+- #6 FDC READ DATA hangs in wait_rqm_write (DIO stays set after command) — **next priority**
 
 ## Investigate Later
 - Compiler inlining with zcc flags
 - Switch statement Z80 code quality
 - z88dk-gdb for Z80 debugging
+- FDC DMA interaction with display DMA (bus contention)
