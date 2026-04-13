@@ -27,9 +27,12 @@
 14. [x] BIOS boots in MAME and displays signon message
 15. [x] Display refresh ISR working (fast assembly in crt0.asm)
 16. [x] sdcccall(1) calling convention — 1,105 bytes saved
-17. [ ] Keyboard input from MAME
-18. [ ] Warm boot — load CCP+BDOS from disk
-19. [ ] CP/M prompt working in MAME
+17. [x] CCP+BDOS assembled for CCP=0xAA00, BDOS=0xB200
+18. [x] CCP+BDOS written to track 1
+19. [x] Warm boot code wired (reads track 1, installs vectors, jumps to CCP)
+20. [ ] FDC interrupt-driven completion (#2) — **blocking warm boot**
+21. [ ] Keyboard input from MAME
+22. [ ] CP/M `A>` prompt working in MAME
 
 ## Known Issues
 
@@ -60,9 +63,15 @@ Hardware initialization (PIO/CTC/SIO/DMA/FDC/8275) is currently
 skipped because the PROM already configured everything. Need to
 enable for standalone boot (without PROM).
 
+## Open Issues
+
+- #1 SDCC code generation bug (inline shift in params) — workaround applied
+- #2 Floppy driver needs interrupt-driven completion — **next priority**
+- #3 8275 CRT parameters differ between PROM and CONFI defaults
+- #4 BIOS too large for 0xDA00 (8.8KB vs 5.2KB target)
+- #5 Automate disk image build
+
 ## Investigate Later
 - Compiler inlining with zcc flags
 - Switch statement Z80 code quality
 - z88dk-gdb for Z80 debugging
-- Build CP/M CCP+BDOS for current TPA (0x0100-0xC000)
-- Optimize BIOS to fit at 0xDA00 (target ~5KB)
