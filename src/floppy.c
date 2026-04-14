@@ -105,10 +105,13 @@ static void fdc_prepare(void) {
     fdc_isr_state.complete = 0;
 }
 
-/* Wait for ISR to set completion flag. */
+/* Wait for ISR to set completion flag.
+ * Always call hal_ei at least once to let the display ISR run —
+ * its RETI clears the CTC daisy chain for Ch.3. */
 static void fdc_wait_complete(void) {
-    while (fdc_isr_state.complete == 0)
+    do {
         hal_ei();
+    } while (fdc_isr_state.complete == 0);
 }
 
 /* Interrupt-driven seek/recalibrate: arm CTC Ch.3, send command,
