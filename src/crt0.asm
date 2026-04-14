@@ -228,10 +228,12 @@ _wrap_write:
     ld   a, c
     jp   _bios_write
 _wrap_sectran:
-    ; BC=logical sector → HL, DE=translate table → DE (already correct)
+    ; BC=logical sector → HL, DE=translate table → DE
     ld   h, b
     ld   l, c
-    jp   _bios_sectran
+    call _bios_sectran
+    ex   de, hl          ; sdcccall(1) returns word in DE → CP/M expects HL
+    ret
 
     ; ---- External references ----
     EXTERN _bios_boot
