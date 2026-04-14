@@ -541,6 +541,11 @@ word bios_sectran(word sector, word xlt) {
 void bios_wboot(void) {
     hal_ei();
 
+    /* Reset FDC state — previous operations may have left it dirty */
+    fdc_wait_idle();
+    fdc_specify(0x4F, 0x20);
+    floppy_init(&floppy_state);
+
     /* Select drive A */
     bios_seldsk(0);
     deblock_state.unacnt = 0;

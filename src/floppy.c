@@ -81,11 +81,19 @@ void fdc_sense_interrupt(byte *st0, byte *pcn) {
     *pcn = fdc_read_byte();
 }
 
-/* Wait for FDC to become idle at init.
- * Per working BIOS: poll MSR until bits 4:0 all zero. */
+/* Wait for FDC to become idle.
+ * Drains any pending result bytes, then waits for MSR bits 4:0 all zero. */
 void fdc_wait_idle(void) {
-    while (FDC_MSR_READ() & 0x1F)
+    for (int i = 0; i < 100; i++) {
+        byte msr = FDC_MSR_READ();
+        if ((msr & 0x1F) == 0)
+            return;  /* idle */
+        if ((msr & (MSR_RQM | MSR_DIO)) == (MSR_RQM | MSR_DIO)) {
+            /* FDC has data to give — drain it */
+            (void)FDC_DATA_READ();
+        }
         hal_ei();
+    }
 }
 
 /* Arm CTC Ch.3 and clear completion flag.
