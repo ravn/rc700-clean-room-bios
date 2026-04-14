@@ -162,6 +162,21 @@ void dma_setup(word addr, word count, byte mode) {
  * then poll for result phase (wait_rqm_read blocks until done). */
 int floppy_read_sector(floppy_t *fl, byte drive, byte cylinder, byte head,
                        byte sector, const fdf_t *fdf, word dma_addr) {
+    /* DEBUG: if sector > 15, something is very wrong */
+    if (sector > 15 || sector == 0) {
+        /* Write error marker to display */
+        byte *disp = (byte *)0xF800 + 4*80;  /* line 5 */
+        const char *hex = "0123456789ABCDEF";
+        disp[0] = 'S'; disp[1] = '=';
+        disp[2] = hex[(sector >> 4) & 0xF];
+        disp[3] = hex[sector & 0xF];
+        disp[4] = ' '; disp[5] = 'C'; disp[6] = '=';
+        disp[7] = hex[(cylinder >> 4) & 0xF];
+        disp[8] = hex[cylinder & 0xF];
+        disp[9] = ' '; disp[10] = 'H'; disp[11] = '=';
+        disp[12] = hex[head & 0xF];
+    }
+
     if (fl->current_track != cylinder)
         fdc_seek(fl, drive, cylinder);
 

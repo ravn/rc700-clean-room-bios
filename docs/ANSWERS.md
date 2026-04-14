@@ -482,3 +482,110 @@ blocks it between interrupts.
 
 To verify: temporarily disable the CRT ISR entirely (point the Ch.2 IVT entry at a stub that does only EI; RETI). If the floppy interrupt starts        
 working, you've confirmed the RETI problem.
+
+----
+
+  ---
+DPB values for 8" DD MFM (dpb8)
+
+Your values are exactly correct. The working BIOS uses (bios.c:92-93):
+
+┌───────┬───────┬────────────────────────────────────────────────────────────────────────┐
+│ Field │ Value │                                 Notes                                  │
+├───────┼───────┼────────────────────────────────────────────────────────────────────────┤
+│ SPT   │ 120   │ 128-byte logical sectors per track (30 per side × 2 sides × 2 deblock) │
+├───────┼───────┼────────────────────────────────────────────────────────────────────────┤
+│ BSH   │ 4     │ Block shift (2 KB blocks)                                              │
+├───────┼───────┼────────────────────────────────────────────────────────────────────────┤
+│ BLM   │ 15    │ Block mask                                                             │
+├───────┼───────┼────────────────────────────────────────────────────────────────────────┤
+│ EXM   │ 0     │ Extent mask                                                            │
+├───────┼───────┼────────────────────────────────────────────────────────────────────────┤
+│ DSM   │ 449   │ Total blocks - 1                                                       │
+├───────┼───────┼────────────────────────────────────────────────────────────────────────┤
+│ DRM   │ 127   │ Directory entries - 1                                                  │
+├───────┼───────┼────────────────────────────────────────────────────────────────────────┤
+│ AL0   │ 0xC0  │ Directory allocation bitmap                                            │
+├───────┼───────┼────────────────────────────────────────────────────────────────────────┤
+│ AL1   │ 0x00  │                                                                        │
+├───────┼───────┼────────────────────────────────────────────────────────────────────────┤
+│ CKS   │ 32    │ Check vector size (DRM+1)/4                                            │
+├───────┼───────┼────────────────────────────────────────────────────────────────────────┤
+│ OFF   │ 2     │ Reserved tracks (track 0 and 1 are system)                             │
+└───────┴───────┴────────────────────────────────────────────────────────────────────────┘
+
+XLT = NULL, SECTRAN is a pass-through, translation is internal
+
+The DPH has XLT = 0 (NULL). Both drives are initialized with xlt = 0:
+
+SDCC path (bios_hw_init.c:257-258):
+static const DPH dph0 = {
+0, {0,0,0}, dirbf, &dpb8, chk0, all0
+};
+
+Clang path (bios_hw_init.c:269-270):
+memset(dph, 0, sizeof(DPH));  /* xlt = NULL */
+
+The BIOS's bios_sectran() (bios.c:1658-1667) is a no-op — it returns BC unchanged in HL:
+
+ld h, b    ; return BC in HL (no translation)
+ld l, c
+ret
+
+CP/M's BDOS calls SECTRAN, gets back the same sector number, and passes it to SETTRK/SETSEC. The BIOS then handles the actual physical sector
+translation internally in chktrk() using the trantb pointer selected by SELDSK:
+
+tp = trantb;           /* points to tran8[] for 8" DD */
+acsec = tp[sec];       /* translate logical → physical */
+
+For 8" DD (format index 1), trantb points to tran8[] which is:
+const byte tran8[] = { 1,5,9,13, 2,6,10,14, 3,7,11,15, 4,8,12 };
+
+That's 15 entries (sectors 1-15), skew 4. Physical sector numbers are 1-based and range 1-15.
+
+SPT=120 and the deblocking math
+
+SPT=120 is in 128-byte CP/M logical sectors. The deblocking parameters for 8" DD are:
+
+- secshf = 3 — shift count (512/128 = 4 records per physical sector, but secshf is 3, and the code does seksec >> (secshf - 1) = seksec >> 2)
+- secmsk = 3 — mask for record within physical sector
+- cpmspt = 120 — logical sectors per track (both sides combined)
+- eotv = 15 — physical end-of-track (first side)
+
+The deblocking path in rwoper():
+sekhst = seksec >> (secshf - 1);  /* seksec >> 2 → host sector 0..29 */
+
+With seksec ranging 0-119 and shift of 2, sekhst ranges 0-29. That's 30 host sectors (15 per side).
+
+Then in chktrk():
+sec = (byte)hstsec;    /* 0..29 */
+ev = eotv;             /* 15 */
+if (sec >= ev) {
+dskno |= 4;        /* select head 1 */
+sec -= ev;          /* sec = 0..14 */
+}
+acsec = tp[sec];        /* translate via tran8[0..14] → physical 1..15 */
+
+So hstsec 0-14 → head 0, sectors 1-15 (via tran8). hstsec 15-29 → head 1, sectors 1-15 (via tran8).
+
+The sector 0x17 (23) problem
+
+If your code sends physical sector 23 (0x17) to the FDC on track 1, something is wrong in the deblocking or translation chain. Here's what should
+happen:
+
+The maximum valid hstsec is 29 (= 120/4 - 1). After the head split in chktrk(), the table index sec is always 0-14. tran8[sec] yields 1-15. Physical
+sector 23 is impossible if the deblocking is correct.
+
+Sector 23 = 0x17 smells like either:
+1. SPT in the DPB is wrong — if SPT were 128 instead of 120, seksec could reach 127, sekhst = 31, after subtracting eotv=15 you get sec=16, which
+   indexes past the end of tran8[] into whatever follows in memory.
+2. The deblocking shift is wrong — if secshf were 2 instead of 3, the code does seksec >> 1, making sekhst range 0-59, and after the head split sec
+   could be 0-44, indexing way past tran8[].
+3. The head split uses the wrong threshold — if eotv is set to the physical EOT (15) for the wrong format, or is zero/uninitialized.
+4. Sector translation is being applied twice — once by BDOS (via a non-null XLT) and once internally.
+5. The raw seksec value is being sent to the FDC without deblocking — skipping the sekhst = seksec >> 2 step entirely.
+
+Given that 23 is within the range of logical sectors (0-119) but outside physical sectors (1-15), it looks like a logical sector number is reaching the
+FDC directly without going through the deblocking layer. The value 23 looks exactly like a CP/M logical sector number that should have been divided by 4
+(→ host sector 5) and then translated through tran8[5] (→ physical sector 6).
+

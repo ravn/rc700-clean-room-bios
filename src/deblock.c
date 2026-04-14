@@ -25,7 +25,8 @@ int deblock_flush(deblock_t *db) {
  */
 static int ensure_host_sector(deblock_t *db, int need_preread) {
     /* Compute host sector from CP/M sector */
-    byte host_sec = db->seksec >> db->secshf;
+    /* DR convention: secshf is log2(physical/logical)+1, shift by secshf-1 */
+    byte host_sec = db->seksec >> (db->secshf - 1);
     byte rec_offset = db->seksec & db->secmsk;
 
     /* Check if already in buffer */

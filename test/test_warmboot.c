@@ -281,7 +281,8 @@ static void test_bytes_match_disk_image(void) {
         int cpm_sec_in_track = rec % 120;
 
         /* Host sector = cpm_sec >> secshf (should be >>2 for 4 records/sector) */
-        int host_sec = cpm_sec_in_track >> cur_fspa->sector_shift;
+        /* DR convention: secshf = log2(records_per_sector)+1, shift by secshf-1 */
+        int host_sec = cpm_sec_in_track >> (cur_fspa->sector_shift - 1);
         int rec_offset = cpm_sec_in_track & cur_fspa->sector_mask;
 
         /* Head selection via EOT */

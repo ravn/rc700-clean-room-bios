@@ -44,7 +44,7 @@ static void test_read_basic(void) {
 
     /* Setup: 512-byte physical sectors, mask=3, shift=3 */
     db.secmsk = 3;
-    db.secshf = 2;  /* shift=2 for 512-byte: seksec>>2 = host sector */
+    db.secshf = 3;  /* shift=2 for 512-byte: seksec>>2 = host sector */
     db.sekdsk = 0;
     db.sektrk = 0;
     db.seksec = 0;
@@ -71,7 +71,7 @@ static void test_write_deferred(void) {
     deblock_init(&db, mock_read, mock_write);
 
     db.secmsk = 3;
-    db.secshf = 2;
+    db.secshf = 3;
     db.sekdsk = 0;
     db.sektrk = 0;
     db.seksec = 0;
@@ -96,7 +96,7 @@ static void test_write_directory_immediate(void) {
     deblock_init(&db, mock_read, mock_write);
 
     db.secmsk = 3;
-    db.secshf = 2;
+    db.secshf = 3;
     db.sekdsk = 0;
     db.sektrk = 0;
     db.seksec = 0;
@@ -114,7 +114,7 @@ static void test_write_unalloc_skips_preread(void) {
     deblock_init(&db, mock_read, mock_write);
 
     db.secmsk = 3;
-    db.secshf = 2;
+    db.secshf = 3;
     db.sekdsk = 0;
     db.sektrk = 1;
     db.seksec = 0;
@@ -138,7 +138,7 @@ static void test_sector_change_flushes(void) {
     deblock_init(&db, mock_read, mock_write);
 
     db.secmsk = 3;
-    db.secshf = 2;
+    db.secshf = 3;
     db.sekdsk = 0;
     db.sektrk = 0;
     db.seksec = 0;
@@ -160,9 +160,9 @@ static void test_256_byte_sectors(void) {
     reset_mock();
     deblock_init(&db, mock_read, mock_write);
 
-    /* 256-byte physical sectors: mask=1, shift=1 */
+    /* 256-byte physical sectors: mask=1, secshf=2 (DR: log2(2)+1) */
     db.secmsk = 1;
-    db.secshf = 1;
+    db.secshf = 2;
 
     /* Fill physical sector with pattern */
     for (int i = 0; i < 256; i++)
