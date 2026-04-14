@@ -170,11 +170,12 @@ static void dbg_char(byte c) {
 
 int floppy_read_sector(floppy_t *fl, byte drive, byte cylinder, byte head,
                        byte sector, const fdf_t *fdf, word dma_addr) {
+    /* Debug display — disabled for clean output
     if (dbg_pos >= 25 * 80) dbg_pos = 12 * 80;
     dbg_char('T'); dbg_hex(cylinder);
     dbg_char('S'); dbg_hex(sector);
     dbg_char('H'); dbg_char('0' + head);
-    dbg_char(' ');
+    dbg_char(' '); */
 
     if (fl->current_track != cylinder)
         fdc_seek(fl, drive, cylinder);

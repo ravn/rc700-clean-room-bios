@@ -158,6 +158,21 @@ static void crt_output(byte c) {
     console_putchar(&console_state, c);
 }
 
+/* ---- BSS integrity check ---- */
+/* Writes function ID to line 11 if jtvars corruption detected */
+static byte check_id = 0;
+static void bss_check(byte id) {
+    check_id = id;
+    if (jtvars_local.fd0[0] != 0x08) {
+        byte *p = (byte *)0xF800 + 1 * 80;
+        const char hex[] = "0123456789ABCDEF";
+        p[0] = '!'; p[1] = hex[(id >> 4) & 0xF]; p[2] = hex[id & 0xF];
+        p[3] = ' '; p[4] = 'f'; p[5] = 'd'; p[6] = '0'; p[7] = '=';
+        p[8] = hex[(jtvars_local.fd0[0] >> 4) & 0xF];
+        p[9] = hex[jtvars_local.fd0[0] & 0xF];
+    }
+}
+
 /* ---- BIOS Entry Points ---- */
 
 /* LIST: Printer output — IOBYTE-routed (Section 6.3) */
@@ -249,6 +264,7 @@ void bios_boot(void) {
 
     /* Step 3: Initialize remaining subsystems */
     jtvars_init(&jtvars_local, confi_defaults);
+    bss_check(0x01);  /* verify jtvars right after init */
     console_state.adrmod = jtvars_local.adrmod;
     chartab_init_identity(&chartab_state);
     deblock_init(&deblock_state, host_disk_read, host_disk_write);
@@ -410,11 +426,13 @@ byte bios_reader(void) {
 
 /* HOME: Home disk */
 void bios_home(void) {
+    bss_check(0x10);
     cur_track = 0;
 }
 
 /* SELDSK: Select disk — format dispatch (Section 10.2) */
 word bios_seldsk(byte disk) {
+    bss_check(0x20);
     if (disk >= MAX_DRIVES) return 0;
 
     byte fmt = jtvars_local.fd0[disk];
@@ -452,21 +470,25 @@ word bios_seldsk(byte disk) {
 
 /* SETTRK: Set track */
 void bios_settrk(word track) {
+    bss_check(0x30);
     cur_track = track;
 }
 
 /* SETSEC: Set sector */
 void bios_setsec(word sector) {
+    bss_check(0x31);
     cur_sector = sector;
 }
 
 /* SETDMA: Set DMA address */
 void bios_setdma(word dma) {
+    bss_check(0x32);
     cur_dma = (byte *)dma;
 }
 
 /* READ: Read sector */
 byte bios_read(void) {
+    bss_check(0x40);
     deblock_state.sekdsk = cur_disk;
     deblock_state.sektrk = cur_track;
     deblock_state.seksec = (byte)cur_sector;
@@ -476,6 +498,7 @@ byte bios_read(void) {
 
 /* WRITE: Write sector */
 byte bios_write(byte wrtyp) {
+    bss_check(0x41);
     deblock_state.sekdsk = cur_disk;
     deblock_state.sektrk = cur_track;
     deblock_state.seksec = (byte)cur_sector;
@@ -502,6 +525,7 @@ byte bios_listst(void) {
 
 /* SECTRAN: Sector translate — pass through unchanged per spec Section 10.8 */
 word bios_sectran(word sector, word xlt) {
+    bss_check(0x50);
     (void)xlt;
     return sector;
 }
@@ -512,6 +536,7 @@ word bios_sectran(word sector, word xlt) {
 
 /* WBOOT: Warm boot (Section 13.2) — IOBYTE is preserved */
 void bios_wboot(void) {
+    bss_check(0x02);  /* check at wboot entry */
     hal_ei();
 
     /* Reset floppy state for the new boot */
