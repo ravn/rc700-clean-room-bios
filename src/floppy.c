@@ -102,11 +102,6 @@ void fdc_wait_idle(void) {
  * The 0xC7 mode byte omits bit 4 (software reset) to avoid resetting
  * the trigger state — only reloads the time constant. */
 static void fdc_prepare(void) {
-    /* Ensure any pending display ISR runs its RETI before we start
-     * the next FDC operation. The display ISR's RETI clears the CTC
-     * daisy chain, allowing Ch.3 to be acknowledged for the next op. */
-    hal_ei();
-    hal_ei();
     fdc_isr_state.complete = 0;
 }
 
@@ -168,7 +163,7 @@ void dma_setup(word addr, word count, byte mode) {
 /* Debug: T/S/H display on lines 12-24 (enable DEBUG_FDC_DISPLAY) */
 /* Debug display functions — always compiled because the function call
  * overhead is needed for MAME CTC/FDC timing. Row 24 only. */
-static word dbg_pos = 24 * 80;
+static word dbg_pos = 12 * 80;  /* start at row 12 */
 static void dbg_hex(byte val) {
     const char hex[] = "0123456789ABCDEF";
     ((byte *)0xF800)[dbg_pos++] = hex[(val >> 4) & 0xF];
@@ -185,7 +180,7 @@ int floppy_read_sector(floppy_t *fl, byte drive, byte cylinder, byte head,
      * interrupt chain to work. Without sufficient overhead between
      * FDC operations, the CTC Ch.3 interrupt stops firing. */
     /* Status on row 24 — uses function calls for timing overhead */
-    if (dbg_pos >= 25 * 80) dbg_pos = 24 * 80;
+    if (dbg_pos >= 25 * 80) dbg_pos = 12 * 80;
     dbg_char('T'); dbg_hex(cylinder);
     dbg_char('S'); dbg_hex(sector);
     dbg_char('H'); dbg_char('0' + head);
