@@ -277,8 +277,10 @@ void bios_boot(void) {
     cur_fspa = NULL;
     cur_fdf = NULL;
 
-    byte rr0 = hal_in(SIO_B_RR0_PORT);
-    iobyte_val = (rr0 & SIO_B_DCD_BIT) ? IOBYTE_JOINED : IOBYTE_LOCAL;
+    /* Force CRT-only mode until SIO is properly initialized.
+     * SIO-B DCD may float high in MAME, causing JOINED mode
+     * which hangs on serial_send. */
+    iobyte_val = IOBYTE_LOCAL;
 
     cur_disk = 0;
     cur_track = 0;
@@ -351,21 +353,17 @@ void bios_conout(byte c) {
 
     switch (mode) {
     case CON_TTY:
-        /* SIO-B serial, then fall through to CRT display */
-        serial_send(&sio_b, c);
+        /* SIO-B serial + CRT — skip serial until SIO initialized */
         crt_output(c);
         break;
     case CON_CRT:
-        /* CRT only */
         crt_output(c);
         break;
     case CON_BAT:
-        /* Batch: send to LIST device */
         bios_list(c);
         break;
     case CON_UC1:
-        /* Joined: SIO-B + CRT simultaneously */
-        serial_send(&sio_b, c);
+        /* Joined — skip serial until SIO initialized */
         crt_output(c);
         break;
     }

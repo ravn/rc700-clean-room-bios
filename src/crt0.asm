@@ -21,23 +21,25 @@
     SECTION CODE
     ORG 0xC000      ; temporary - will be 0xDA00 when code is optimized
 
-    jp  _bios_boot          ; +0x00 BOOT
-    jp  _bios_wboot         ; +0x03 WBOOT
-    jp  _bios_const         ; +0x06 CONST
-    jp  _bios_conin         ; +0x09 CONIN
-    jp  _bios_conout        ; +0x0C CONOUT
-    jp  _bios_list          ; +0x0F LIST
-    jp  _bios_punch         ; +0x12 PUNCH
-    jp  _bios_reader        ; +0x15 READER
-    jp  _bios_home          ; +0x18 HOME
-    jp  _bios_seldsk        ; +0x1B SELDSK
-    jp  _bios_settrk        ; +0x1E SETTRK
-    jp  _bios_setsec        ; +0x21 SETSEC
-    jp  _bios_setdma        ; +0x24 SETDMA
-    jp  _bios_read          ; +0x27 READ
-    jp  _bios_write         ; +0x2A WRITE
-    jp  _bios_listst        ; +0x2D LISTST
-    jp  _bios_sectran       ; +0x30 SECTRAN
+    ; CP/M passes params in BC/DE. sdcccall(1) expects A (byte) or HL (word).
+    ; Wrappers convert register conventions before calling C functions.
+    jp  _bios_boot          ; +0x00 BOOT (no params)
+    jp  _bios_wboot         ; +0x03 WBOOT (no params)
+    jp  _bios_const         ; +0x06 CONST (no params)
+    jp  _bios_conin         ; +0x09 CONIN (no params)
+    jp  _wrap_conout        ; +0x0C CONOUT (C=char → A)
+    jp  _wrap_list          ; +0x0F LIST (C=char → A)
+    jp  _wrap_punch         ; +0x12 PUNCH (C=char → A)
+    jp  _bios_reader        ; +0x15 READER (no params)
+    jp  _bios_home          ; +0x18 HOME (no params)
+    jp  _wrap_seldsk        ; +0x1B SELDSK (C=disk → A)
+    jp  _wrap_settrk        ; +0x1E SETTRK (BC=track → HL)
+    jp  _wrap_setsec        ; +0x21 SETSEC (BC=sector → HL)
+    jp  _wrap_setdma        ; +0x24 SETDMA (BC=addr → HL)
+    jp  _bios_read          ; +0x27 READ (no params)
+    jp  _wrap_write         ; +0x2A WRITE (C=type → A)
+    jp  _bios_listst        ; +0x2D LISTST (no params)
+    jp  _wrap_sectran       ; +0x30 SECTRAN (BC=sec → HL, DE=xlt → DE)
 
     ; ---- JTVARS block (22 bytes at +0x33) ----
     PUBLIC _jtvars
@@ -171,6 +173,42 @@ _isr_fdc_wrapper:
 _isr_dummy:
     ei
     reti
+
+    ; ---- CP/M → sdcccall(1) register wrappers ----
+    ; CP/M: byte param in C, word param in BC, 2nd word in DE
+    ; sdcccall(1): byte in A, word in HL, 2nd word in DE
+_wrap_conout:
+    ld   a, c
+    jp   _bios_conout
+_wrap_list:
+    ld   a, c
+    jp   _bios_list
+_wrap_punch:
+    ld   a, c
+    jp   _bios_punch
+_wrap_seldsk:
+    ld   a, c
+    jp   _bios_seldsk
+_wrap_settrk:
+    ld   h, b
+    ld   l, c
+    jp   _bios_settrk
+_wrap_setsec:
+    ld   h, b
+    ld   l, c
+    jp   _bios_setsec
+_wrap_setdma:
+    ld   h, b
+    ld   l, c
+    jp   _bios_setdma
+_wrap_write:
+    ld   a, c
+    jp   _bios_write
+_wrap_sectran:
+    ; BC=logical sector → HL, DE=translate table → DE (already correct)
+    ld   h, b
+    ld   l, c
+    jp   _bios_sectran
 
     ; ---- External references ----
     EXTERN _bios_boot

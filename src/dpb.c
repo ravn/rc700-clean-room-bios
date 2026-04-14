@@ -23,7 +23,7 @@ const fspa_t fspa_table[FMT_COUNT] = {
       .tran_size=TRAN0_SIZE, .data_length=128 },
     /* FMT_8DD_MFM */
     { .dpb=&dpb_table[1], .records_per_block=16, .cpm_spt=120,
-      .sector_mask=3, .sector_shift=3, .tran_table=tran8,
+      .sector_mask=3, .sector_shift=2, .tran_table=tran8,
       .tran_size=TRAN8_SIZE, .data_length=255 },
     /* FMT_5DD_MFM */
     { .dpb=&dpb_table[2], .records_per_block=8, .cpm_spt=26,
