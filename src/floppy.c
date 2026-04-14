@@ -179,12 +179,8 @@ int floppy_read_sector(floppy_t *fl, byte drive, byte cylinder, byte head,
      * These writes provide timing overhead needed for MAME's CTC/FDC
      * interrupt chain to work. Without sufficient overhead between
      * FDC operations, the CTC Ch.3 interrupt stops firing. */
-    /* Status on row 24 — uses function calls for timing overhead */
-    if (dbg_pos >= 25 * 80) dbg_pos = 12 * 80;
-    dbg_char('T'); dbg_hex(cylinder);
-    dbg_char('S'); dbg_hex(sector);
-    dbg_char('H'); dbg_char('0' + head);
-    dbg_char(' ');
+    /* Debug display removed — FDC result reading now provides
+     * enough overhead for CTC timing. */
 
     if (fl->current_track != cylinder)
         fdc_seek(fl, drive, cylinder);
