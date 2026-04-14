@@ -166,36 +166,13 @@ static void test_full_display_isr(void) {
     printf("  Full display ISR: %d writes, RTC incremented\n", write_count);
 }
 
-static void test_floppy_isr_result_phase(void) {
+static void test_floppy_isr_sets_flag(void) {
     reset();
-    /* FDC MSR shows CB set (result phase) after delay reads */
-    read_values[0x04] = 0x10;  /* CB set */
-    read_values[0x05] = 0x20;  /* ST0 = 0x20 (seek end) */
-
+    /* Minimal ISR: just sets complete flag */
+    fdc_isr_state.complete = 0;
     isr_floppy_complete();
-
     assert(fdc_isr_state.complete == 0xFF);
-    assert(fdc_isr_state.st0 == 0x20);
-    printf("  Floppy ISR (result phase): verified\n");
-}
-
-static void test_floppy_isr_sense_interrupt(void) {
-    reset();
-    /* FDC MSR shows CB clear (not in result phase) */
-    read_values[0x04] = 0x00;
-    read_values[0x05] = 0x20;  /* ST0 from SENSE INT */
-
-    isr_floppy_complete();
-
-    assert(fdc_isr_state.complete == 0xFF);
-    /* Should have sent SENSE INTERRUPT STATUS (0x08) */
-    int found_sense = 0;
-    for (int i = 0; i < write_count; i++) {
-        if (writes[i].port == 0x05 && writes[i].value == 0x08)
-            found_sense = 1;
-    }
-    assert(found_sense);
-    printf("  Floppy ISR (sense interrupt): verified\n");
+    printf("  Floppy ISR (sets complete flag): verified\n");
 }
 
 int main(void) {
@@ -207,8 +184,7 @@ int main(void) {
     test_timer2_motor_off();
     test_delcnt();
     test_full_display_isr();
-    test_floppy_isr_result_phase();
-    test_floppy_isr_sense_interrupt();
+    test_floppy_isr_sets_flag();
     printf("All interrupt tests passed.\n");
     return 0;
 }

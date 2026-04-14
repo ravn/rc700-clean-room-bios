@@ -12,7 +12,7 @@
 5. [x] `config.c` + `test_config.c` — CONFI block parsing, baud rate tables
 
 ### Phase 3 — Stateful logic (DONE)
-6. [x] `console.c` + `test_console.c` — cursor, control chars, scrolling, XY escape, background bitmap
+6. [x] `console.c` + `test_console.c` — cursor, control chars, scrolling, XY escape
 7. [x] `deblock.c` + `test_deblock.c` — sector deblocking algorithm
 8. [x] `chartab.c` + `test_chartab.c` — character conversion tables
 
@@ -26,51 +26,60 @@
 ### Phase 5 — MAME integration (IN PROGRESS)
 14. [x] BIOS boots in MAME and displays signon message
 15. [x] Display refresh ISR working (fast assembly in crt0.asm)
-16. [x] sdcccall(1) calling convention — 1,105 bytes saved
+16. [x] sdcccall(1) calling convention
 17. [x] CCP+BDOS assembled for CCP=0xAA00, BDOS=0xB200
 18. [x] CCP+BDOS written to track 1
-19. [x] Warm boot code wired (reads track 1, installs vectors, jumps to CCP)
-20. [x] Two-phase loader (head 0 + head 1 data from track 0)
-21. [x] hal_in bug fixed (return 0 clobbered port read result)
-22. [x] Background bitmap stubbed out (-DCONSOLE_NO_BGMAP) — 355 bytes saved
-23. [x] FDC recalibrate/seek with polling (wait_rqm + SENSE INTERRUPT)
-24. [x] Display stable during FDC polling (hal_ei in wait loops)
-25. [ ] FDC READ DATA command — **blocking warm boot** (#6)
-26. [ ] Keyboard input from MAME
-27. [ ] CP/M `A>` prompt working in MAME
+19. [x] Warm boot code wired
+20. [x] Two-phase loader (head 0 + head 1)
+21. [x] hal_in/hal_out fixed (return clobber, B register, __sfr for FDC/DMA)
+22. [x] Background bitmap stubbed (-DCONSOLE_NO_BGMAP)
+23. [x] FDC interrupt-driven via CTC Ch.3 — ISR fires, recalibrate/seek/read complete
+24. [x] Display stable during FDC operations (hal_ei in wait loops)
+25. [x] Warm boot reaches CCP at 0xAA00 (confirmed by execution trace)
+26. [ ] Fix DMA data corruption (#7) — **blocking A> prompt**
+27. [ ] Fix ISR stack leak (#8)
+28. [ ] Keyboard input from MAME
+29. [ ] CP/M `A>` prompt working in MAME
 
-## Known Issues
+## Known Issues / Bugs Found
 
-### hal_in sdcccall(1) return convention (#1 resolved)
-The original `hal_in` had `return 0;` which generated `LD A,#0` — clobbering
-the IN result. Fixed by using `IN A,(C)` + `LD L,A` with no return statement.
+### Port I/O forms (RESOLVED)
+Z80 `IN A,(C)` / `OUT (C),A` use B:C as 16-bit address. With SDCC-generated
+code, B is unpredictable. All FDC and DMA port I/O now uses `__sfr __at()`
+which generates `IN A,(n)` / `OUT (n),A` (fixed 8-bit port address).
+`hal_in`/`hal_out` have `LD B,#0` for other ports.
 
-### SDCC code generation bug
-SDCC generates incorrect code for inline expressions passed as function
-parameters. Workaround: pre-compute into local variables.
+### SDCC __interrupt attribute (RESOLVED)
+- `__interrupt` generates `EI` at entry + `RETI` at exit (nesting, but correct RETI)
+- `__critical __interrupt` generates `RETN` at exit (WRONG for IM2 daisy chain)
+- Solution: assembly wrappers in crt0.asm with manual EI+RETI
 
-### CONFI PAR3/PAR4 values differ from PROM
-The CONFI default CRT parameters differ from the PROM's. Currently relying
-on PROM's configuration.
-
-### BIOS size
-Code+rodata = 8,290 bytes with bgmap stubbed. Fits in track 0 (9,312 byte
-capacity) with 1,022 bytes margin. Still too large for 0xDA00 (target ~5.2KB).
-
-### hw_init_all disabled
-Hardware initialization skipped — PROM handles it.
+### ISR RETI requirement (RESOLVED)
+All ISRs must end with RETI (ED 4D), not RET (C9) or RETN (ED 45).
+Without RETI, higher-priority CTC channels block lower-priority ones
+in the Z80 daisy chain. CTC Ch.2 (display) blocked Ch.3 (floppy) when
+the floppy ISR used RET.
 
 ## Open Issues
 
-- #1 ~~hal_in return bug~~ FIXED
-- #2 ~~FDC interrupt-driven completion~~ Changed to polling approach
 - #3 8275 CRT parameters differ between PROM and CONFI defaults
-- #4 BIOS too large for 0xDA00 (8.3KB vs 5.2KB target)
+- #4 BIOS too large for 0xDA00 (target ~5.2KB, currently ~8.3KB)
 - #5 Automate disk image build
-- #6 FDC READ DATA hangs in wait_rqm_write (DIO stays set after command) — **next priority**
+- #7 **DMA data corruption** — FDC reads complete but bytes in memory are wrong.
+     CCP at 0xAA00 should start with C3 50 AD (JP 0xAD50) but contains
+     C3 5C C7 (JP 0xC75C). DMA channel 1 setup may have wrong address,
+     count, or mode. The `dma_setup` function uses `__sfr` for port writes.
+     Native test_warmboot verifies byte-for-byte correctly, so the issue
+     is specific to the Z80/MAME DMA controller interaction.
+- #8 **ISR stack leak** — SP grows by 2 bytes per FDC ISR invocation.
+     Entry/exit SP within the ISR wrapper is balanced, but mainline SP
+     increments. Root cause unknown — may be related to the display ISR
+     nesting via EI at entry, or an SDCC function prologue issue.
 
 ## Investigate Later
+- Move BIOS to 0xDA00 for standard CP/M memory map
 - Compiler inlining with zcc flags
 - Switch statement Z80 code quality
 - z88dk-gdb for Z80 debugging
-- FDC DMA interaction with display DMA (bus contention)
+- Re-enable SIO/PIO ISRs with proper asm wrappers
+- Background bitmap (CONSOLE_NO_BGMAP)
