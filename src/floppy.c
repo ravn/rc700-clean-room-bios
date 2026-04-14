@@ -93,8 +93,10 @@ void fdc_wait_idle(void) {
 static void fdc_arm_interrupt(void) {
     fdc_isr_state.complete = 0;
 #ifdef __SDCC
-    ctc_ch0 = 0x08;   /* ensure CTC vector base = 0x08 */
-    ctc_ch3 = 0xD7;   /* counter mode, interrupt enabled */
+    /* Do NOT write vector base — writing 0x08 to Ch.0 port may be
+     * interpreted as a time constant if Ch.0 expects one.
+     * The PROM already set the vector base. */
+    ctc_ch3 = 0xD7;   /* counter mode, interrupt enabled, software reset */
     ctc_ch3 = 0x01;   /* count 1 trigger */
 #else
     /* native: ISR is called synchronously by test harness */
