@@ -95,40 +95,48 @@ __sfr __at(0x0F) isr_ctc_ch3;
 #define ISR_FDC_DATA  hal_in(0x05)
 #endif
 
-#ifdef __SDCC
-void isr_floppy_complete(void) __interrupt {
-#else
 void isr_floppy_complete(void) {
+    /* ISR-safe RQM wait (no hal_ei — must not enable interrupts in ISR) */
+#ifdef __SDCC
+    #define ISR_WAIT_RQM_READ() do { while ((isr_fdc_msr & 0xC0) != 0xC0); } while(0)
+    #define ISR_WAIT_RQM_WRITE() do { while ((isr_fdc_msr & 0xC0) != 0x80); } while(0)
+#else
+    #define ISR_WAIT_RQM_READ()
+    #define ISR_WAIT_RQM_WRITE()
 #endif
+
     /* Check MSR bit 4 (CB — Controller Busy).
-     * CB=1 → result phase (READ/WRITE): read 7 result bytes.
+     * CB=1 → result phase (READ/WRITE): read up to 7 result bytes.
      * CB=0 → seek complete: issue SENSE INTERRUPT STATUS. */
     byte msr = ISR_FDC_MSR;
     if (msr & 0x10) {
-        /* Result phase: read all 7 result bytes */
+        /* Result phase: read result bytes until CB clears */
+        ISR_WAIT_RQM_READ();
         fdc_isr_state.st0 = ISR_FDC_DATA;
+        ISR_WAIT_RQM_READ();
         fdc_isr_state.st1 = ISR_FDC_DATA;
-        for (int i = 0; i < 5; i++)
+        for (int i = 0; i < 5; i++) {
+            if (!(ISR_FDC_MSR & 0x10)) break;  /* CB cleared */
+            ISR_WAIT_RQM_READ();
             (void)ISR_FDC_DATA;
+        }
     } else {
         /* Seek/recalibrate complete: SENSE INTERRUPT STATUS */
+        ISR_WAIT_RQM_WRITE();
 #ifdef __SDCC
-        isr_fdc_data = 0x08;  /* send SENSE INT command */
+        isr_fdc_data = 0x08;
 #else
         hal_out(0x05, 0x08);
 #endif
+        ISR_WAIT_RQM_READ();
         fdc_isr_state.st0 = ISR_FDC_DATA;
+        ISR_WAIT_RQM_READ();
         (void)ISR_FDC_DATA;  /* PCN */
     }
 
-    /* Re-arm CTC Ch.3 for next FDC operation */
-#ifdef __SDCC
-    isr_ctc_ch3 = 0xD7;
-    isr_ctc_ch3 = 0x01;
-#else
-    hal_out(0x0F, 0xD7);
-    hal_out(0x0F, 0x01);
-#endif
+    /* Do NOT re-arm CTC Ch.3 here — if FDC INTRQ is still high,
+     * re-arming would immediately trigger another interrupt.
+     * Mainline re-arms via fdc_arm_interrupt before next command. */
 
     /* Signal completion LAST — mainline polls this */
     fdc_isr_state.complete = 0xFF;

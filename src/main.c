@@ -178,7 +178,7 @@ extern void z80_setup_im2(void);
  * On native builds, these are plain functions (called from tests). */
 
 #ifdef __SDCC
-#define ISR_FUNC  __interrupt
+#define ISR_FUNC  __critical __interrupt
 #else
 #define ISR_FUNC
 #endif

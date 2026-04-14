@@ -87,7 +87,7 @@ _isr_vector_data:
     DEFW _isr_dummy              ;  4: CTC Ch.0 (baud rate) vector=0x08
     DEFW _isr_dummy              ;  5: CTC Ch.1 (baud rate) vector=0x0A
     DEFW _isr_crt_fast           ;  6: CTC Ch.2 (display) vector=0x0C
-    DEFW _isr_floppy_complete    ;  7: CTC Ch.3 (floppy) vector=0x0E
+    DEFW _isr_fdc_wrapper        ;  7: CTC Ch.3 (floppy) vector=0x0E
     DEFW _isr_sio_b_tx           ;  8: SIO Ch.B TX vector=0x10
     DEFW _isr_sio_b_ext          ;  9: SIO Ch.B EXT vector=0x12
     DEFW _isr_sio_b_rx           ; 10: SIO Ch.B RX vector=0x14
@@ -139,6 +139,27 @@ _isr_crt_fast:
     ld   a, 001H
     out  (00EH), a          ; count = 1
 
+    pop  bc
+    pop  de
+    pop  hl
+    pop  af
+    ei
+    reti
+
+    ; ---- Floppy ISR wrapper ----
+    ; Saves all registers, calls C handler, restores, EI+RETI.
+    ; The C function isr_floppy_complete is a plain function (no __interrupt)
+    ; so it uses RET. The wrapper provides the RETI for daisy chain.
+_isr_fdc_wrapper:
+    push af
+    push hl
+    push de
+    push bc
+    push ix
+    push iy
+    call _isr_floppy_complete
+    pop  iy
+    pop  ix
     pop  bc
     pop  de
     pop  hl
