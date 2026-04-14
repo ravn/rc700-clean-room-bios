@@ -95,7 +95,11 @@ __sfr __at(0x0F) isr_ctc_ch3;
 #define ISR_FDC_DATA  hal_in(0x05)
 #endif
 
+#ifdef __SDCC
+void isr_floppy_complete(void) __interrupt {
+#else
 void isr_floppy_complete(void) {
+#endif
     /* Check MSR bit 4 (CB — Controller Busy).
      * CB=1 → result phase (READ/WRITE): read 7 result bytes.
      * CB=0 → seek complete: issue SENSE INTERRUPT STATUS. */

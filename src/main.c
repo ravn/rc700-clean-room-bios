@@ -220,6 +220,10 @@ void bios_boot(void) {
 
 #ifdef BIOS_WITH_CRT0
     z80_setup_im2();  /* switches to our ISR vectors — ISR must see valid display_buf */
+
+    /* CTC: rely on PROM's initialization.
+     * Ch.2 (display) re-armed by display ISR.
+     * Ch.3 (floppy) armed by fdc_arm_interrupt. */
 #endif
     hal_ei();
 
@@ -245,6 +249,27 @@ void bios_boot(void) {
      * 3. Recalibrate drive 0 */
     fdc_wait_idle();
     fdc_specify(0x4F, 0x20);  /* SRT=4ms, HUT=240ms, HLT=16ms, DMA mode */
+
+    /* Check drive ready before RECALIBRATE (per working BIOS).
+     * SENSE DRIVE STATUS (0x04) returns ST3 with RDY bit (bit 5). */
+    fdc_send_byte(0x04);      /* SENSE DRIVE STATUS command */
+    fdc_send_byte(0x00);      /* drive 0, head 0 */
+    {
+        byte st3 = fdc_read_byte();
+        /* Display ST3 for diagnostics */
+        const char *hex = "0123456789ABCDEF";
+        crt_output('S'); crt_output('T'); crt_output('3'); crt_output('=');
+        crt_output(hex[(st3 >> 4) & 0xF]);
+        crt_output(hex[st3 & 0xF]);
+        crt_output(' ');
+        if (st3 & 0x20) {
+            crt_output('R'); crt_output('D'); crt_output('Y');
+        } else {
+            crt_output('N'); crt_output('R'); crt_output('D');
+        }
+        crt_output('\r'); crt_output('\n');
+    }
+
     fdc_recalibrate(&floppy_state, 0);
 
     /* Step 5: Remaining setup */
