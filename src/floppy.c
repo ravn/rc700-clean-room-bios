@@ -157,8 +157,9 @@ void dma_setup(word addr, word count, byte mode) {
 
 /* Polling-based READ DATA: send 9 command bytes, DMA runs,
  * then poll for result phase (wait_rqm_read blocks until done). */
-/* Debug: T/S/H display on lines 12-24, wrapping */
-static word dbg_pos = 12 * 80;  /* start at row 12 */
+/* Debug: T/S/H display on lines 12-24 (enable DEBUG_FDC_DISPLAY) */
+#ifdef DEBUG_FDC_DISPLAY
+static word dbg_pos = 12 * 80;
 static void dbg_hex(byte val) {
     const char hex[] = "0123456789ABCDEF";
     ((byte *)0xF800)[dbg_pos++] = hex[(val >> 4) & 0xF];
@@ -167,15 +168,17 @@ static void dbg_hex(byte val) {
 static void dbg_char(byte c) {
     ((byte *)0xF800)[dbg_pos++] = c;
 }
+#endif
 
 int floppy_read_sector(floppy_t *fl, byte drive, byte cylinder, byte head,
                        byte sector, const fdf_t *fdf, word dma_addr) {
-    /* Debug display — disabled for clean output
+#ifdef DEBUG_FDC_DISPLAY
     if (dbg_pos >= 25 * 80) dbg_pos = 12 * 80;
     dbg_char('T'); dbg_hex(cylinder);
     dbg_char('S'); dbg_hex(sector);
     dbg_char('H'); dbg_char('0' + head);
-    dbg_char(' '); */
+    dbg_char(' ');
+#endif
 
     if (fl->current_track != cylinder)
         fdc_seek(fl, drive, cylinder);
