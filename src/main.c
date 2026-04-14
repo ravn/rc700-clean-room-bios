@@ -562,11 +562,10 @@ void bios_wboot(void) {
     /* Load CCP+BDOS from track 1 */
     cur_dma = (byte *)CCP_BASE;
     bios_settrk(1);
-    for (word sec = 0; sec < NSECTS; sec++) {
-        bios_setsec(sec);
+    for (byte sec = 0; sec < NSECTS; sec++) {
         deblock_state.sekdsk = cur_disk;
         deblock_state.sektrk = cur_track;
-        deblock_state.seksec = (byte)sec;
+        deblock_state.seksec = sec;
         deblock_state.dmaadr = cur_dma;
         if (deblock_read(&deblock_state) != 0) {
             /* Disk read error — display message and halt */

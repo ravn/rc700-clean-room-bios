@@ -105,6 +105,9 @@ _isr_vector_data:
     ; Must reprogram DMA Ch2 immediately after 8275 VRTC interrupt.
     ; Matches the PROM's DISINT routine — all inline, no C calls.
 _isr_crt_fast:
+    ; Switch to ISR stack (same as floppy ISR)
+    ld   (_isr_sp_save), sp
+    ld   sp, 0F5F0H
     push af
     in   a, (001H)          ; read 8275 status to acknowledge interrupt
 
@@ -145,6 +148,7 @@ _isr_crt_fast:
     pop  de
     pop  hl
     pop  af
+    ld   sp, (_isr_sp_save)  ; restore mainline SP
     ei
     reti
 
