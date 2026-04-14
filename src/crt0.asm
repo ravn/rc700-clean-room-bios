@@ -81,21 +81,21 @@ _z80_setup_im2:
     ; Table index = vector_byte / 2
 _isr_vector_data:
     DEFW _isr_dummy              ;  0: (unused)
-    DEFW _isr_keyboard_handler   ;  1: PIO Ch.A (keyboard) vector=0x02
+    DEFW _isr_dummy              ;  1: PIO Ch.A (keyboard) — disabled for boot
     DEFW _isr_dummy              ;  2: PIO Ch.B vector=0x04
     DEFW _isr_dummy              ;  3: (unused)
     DEFW _isr_dummy              ;  4: CTC Ch.0 (baud rate) vector=0x08
     DEFW _isr_dummy              ;  5: CTC Ch.1 (baud rate) vector=0x0A
     DEFW _isr_crt_fast           ;  6: CTC Ch.2 (display) vector=0x0C
     DEFW _isr_fdc_wrapper        ;  7: CTC Ch.3 (floppy) vector=0x0E
-    DEFW _isr_sio_b_tx           ;  8: SIO Ch.B TX vector=0x10
-    DEFW _isr_sio_b_ext          ;  9: SIO Ch.B EXT vector=0x12
-    DEFW _isr_sio_b_rx           ; 10: SIO Ch.B RX vector=0x14
-    DEFW _isr_sio_b_spec         ; 11: SIO Ch.B SPEC vector=0x16
-    DEFW _isr_sio_a_tx           ; 12: SIO Ch.A TX vector=0x18
-    DEFW _isr_sio_a_ext          ; 13: SIO Ch.A EXT vector=0x1A
-    DEFW _isr_sio_a_rx           ; 14: SIO Ch.A RX vector=0x1C
-    DEFW _isr_sio_a_spec         ; 15: SIO Ch.A SPEC vector=0x1E
+    DEFW _isr_dummy              ;  8: SIO Ch.B TX — disabled for boot
+    DEFW _isr_dummy              ;  9: SIO Ch.B EXT
+    DEFW _isr_dummy              ; 10: SIO Ch.B RX
+    DEFW _isr_dummy              ; 11: SIO Ch.B SPEC
+    DEFW _isr_dummy              ; 12: SIO Ch.A TX
+    DEFW _isr_dummy              ; 13: SIO Ch.A EXT
+    DEFW _isr_dummy              ; 14: SIO Ch.A RX
+    DEFW _isr_dummy              ; 15: SIO Ch.A SPEC
     DEFW _isr_dummy              ; 16: PIO Ch.A alt (keyboard) vector=0x20
     DEFW _isr_dummy              ; 17: PIO Ch.B alt vector=0x22
 
