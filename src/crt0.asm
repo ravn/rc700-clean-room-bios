@@ -152,7 +152,14 @@ _isr_crt_fast:
     ; Saves all registers, calls C handler, restores, EI+RETI.
     ; The C function isr_floppy_complete is a plain function (no __interrupt)
     ; so it uses RET. The wrapper provides the RETI for daisy chain.
+    ; Saved SP for ISR stack switch
+_isr_sp_save:
+    DEFW 0
+
 _isr_fdc_wrapper:
+    ; Switch to dedicated ISR stack (per working BIOS pattern)
+    ld   (_isr_sp_save), sp
+    ld   sp, 0F5F0H         ; ISR stack below vector table
     push af
     push hl
     push de
@@ -166,10 +173,13 @@ _isr_fdc_wrapper:
     pop  de
     pop  hl
     pop  af
+    ld   sp, (_isr_sp_save)  ; restore interrupted SP
     ei
     reti
 
     ; ---- Dummy ISR for unused vectors ----
+    ; Must use EI+RETI (not RET) to clear Z80 daisy chain.
+    PUBLIC _isr_dummy
 _isr_dummy:
     ei
     reti

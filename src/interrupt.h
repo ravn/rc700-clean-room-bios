@@ -74,7 +74,7 @@ extern display_isr_state_t display_isr_state;
 /* ISR handlers — called from the vector table dispatch */
 void isr_display_refresh(void);   /* CTC Ch.2 — 50 Hz */
 void isr_floppy_complete(void);
-void isr_dummy(void);             /* unused vectors */
+/* isr_dummy defined in crt0.asm (EI+RETI), not in C */
 
 /* Reprogram DMA channels 2+3 for display refresh */
 void isr_reprogram_display_dma(void);

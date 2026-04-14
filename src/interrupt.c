@@ -102,8 +102,7 @@ void isr_floppy_complete(void) {
     fdc_isr_state.complete = 0xFF;
 }
 
-/* ---- Dummy ISR ---- */
-
-void isr_dummy(void) {
-    /* Do nothing — used for baud rate CTC channels and unused vectors */
-}
+/* isr_dummy is defined in crt0.asm with EI+RETI (not here).
+ * A C function would generate plain RET which breaks the Z80
+ * daisy chain — every interrupt through it would leak 2 bytes
+ * and permanently block lower-priority interrupts. */

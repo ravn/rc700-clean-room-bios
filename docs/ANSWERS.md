@@ -589,3 +589,116 @@ Given that 23 is within the range of logical sectors (0-119) but outside physica
 FDC directly without going through the deblocking layer. The value 23 looks exactly like a CP/M logical sector number that should have been divided by 4
 (→ host sector 5) and then translated through tran8[5] (→ physical sector 6).
 
+---
+                                                                                                                                                          
+---                                                                                                                                                     
+What the Z80 pushes during IM2 interrupt entry
+
+The Z80 pushes exactly 2 bytes (the return address PC) onto the stack during IM2 interrupt acknowledgement. Nothing else. No flags, no registers — just
+the PC. The interrupt entry sequence is:
+
+1. Z80 finishes current instruction
+2. Z80 pushes PC (2 bytes, SP decreases by 2)
+3. Z80 reads vector byte from the acknowledging device
+4. Z80 forms address: (I register << 8) | vector_byte
+5. Z80 reads 16-bit ISR address from that memory location
+6. Z80 jumps to ISR
+
+So the only thing the Z80 hardware adds to the stack is the 2-byte return address. Everything else (register saves) is the ISR's responsibility.
+
+What the working BIOS's floppy ISR saves
+
+The working BIOS saves AF, BC, DE, HL — that's 4 pushes = 8 bytes. No IX, no IY.
+
+SDCC build (bios.c:1941-1948, inline __naked):                                                                                                          
+isr_enter_full:                                                                                                                                       
+ld  (_sp_sav), sp       ; save interrupted SP                                                                                                       
+ld  sp, ISTACK_ADDR     ; switch to ISR stack (0xF600)                                                                                            
+push af                                                                                                                                             
+push bc
+push de                                                                                                                                             
+push hl
+
+Clang build (bios_shims.s:250-264):                                                                                                                     
+_isr_floppy_wrapper:
+ld  (_sp_sav), sp                                                                                                                                   
+ld  sp, ISTACK_ADDR                                                                                                                               
+push af                                                                                                                                             
+push bc
+push de                                                                                                                                             
+push hl                                                                                                                                           
+call _isr_floppy                                                                                                                                  
+pop  hl         
+pop  de
+pop  bc                                                                                                                                             
+pop  af
+ld  sp, (_sp_sav)                                                                                                                                   
+ei                                                                                                                                                
+reti
+
+Critical detail: the working BIOS switches SP to a dedicated ISR stack (ISTACK_ADDR = 0xF600) before any pushes. The register saves go onto the ISR
+stack, not the interrupted program's stack. The interrupted program's SP is saved in _sp_sav and restored before RETI.
+
+This means the interrupted program's stack only ever sees the 2-byte PC push (from Z80 hardware) and the 2-byte PC pop (from RETI). Net effect on the   
+interrupted program's stack: zero. The SP is restored to exactly where it was.
+
+Your +2 per ISR invocation: the stack switch is the key
+
+You said your ISR saves AF, HL, DE, BC, IX, IY (12 bytes), calls a C function, restores, EI, RETI, and entry/exit SP are balanced. But mainline SP grows
++2 per invocation.
+
+The +2 is the return address that the Z80 hardware pushes. Your ISR is restoring SP correctly within the ISR, but you're not accounting for the fact    
+that the Z80 pushed 2 bytes onto the interrupted program's stack before your ISR code even starts executing.
+
+Here's the sequence:
+
+1. Mainline running, SP = X
+2. Z80 accepts interrupt: pushes PC, SP = X-2
+3. Your ISR runs (saves regs, calls C, restores regs)
+4. RETI: pops PC, SP = X
+
+If that's balanced, mainline SP should be unchanged. So if you're seeing +2, one of these is happening:
+
+Most likely: your ISR does push before switching stacks. If your code is:                                                                               
+push af              ; pushes onto interrupted stack! SP = X-4                                                                                        
+push hl              ; SP = X-6                                                                                                                         
+... (more pushes)                                                                                                                                       
+ld (_sp_sav), sp     ; saves wrong SP                                                                                                                 
+ld sp, ISTACK        ; switch stack                                                                                                                     
+... call C function ...                                                                                                                                 
+ld sp, (_sp_sav)     ; restores to X-6, not X-2                                                                                                         
+pop hl               ; SP = X-4                                                                                                                         
+pop af               ; SP = X-2                                                                                                                         
+ei                                                                                                                                                      
+reti                 ; pops PC, SP = X ... wait, that's fine
+
+No, that would balance. Let me think about what produces exactly +2...
+
+The +2 strongly suggests RETI is not executing, or is executing a RET instead. If your ISR ends with RET (C9) instead of RETI (ED 4D):
+
+1. Z80 pushes PC: SP = X-2
+2. ISR saves to ISR stack, switches back, restores
+3. RET: pops PC from stack: SP = X → correct
+4. But the CTC never sees RETI on the bus
+5. Next time CRT ISR fires: Z80 pushes PC: SP = X-2
+6. CRT ISR runs, ends with RET: SP = X
+7. Now FDC fires... but wait, CTC Ch.2 is still "in service" because no RETI was seen
+
+Actually, a plain RET would also pop 2 bytes, so SP would balance. The +2 means something pushes but doesn't pop.
+
+Wait — re-read your description: "mainline SP grows +2 per FDC ISR invocation." Does "grows" mean SP increases (moves toward higher addresses, i.e., the
+stack shrinks/pops) or decreases (stack grows deeper)?
+
+If SP decreases by 2 (stack grows deeper) per ISR: something in the ISR is pushing without popping.
+
+If SP increases by 2 (stack shrinks) per ISR: something is popping more than it pushed, or the return address is consumed but a push is missing.
+
+Check this specific scenario: does your ISR wrapper do call isr_body + ret inside the ISR? A call pushes 2 bytes (return address), and the callee's ret
+pops them. But if isr_body is declared __interrupt and the compiler adds its own reti at the end, the call return address is consumed by that reti    
+instead of flowing back to your wrapper. Your wrapper then hits its own reti which pops the Z80-pushed PC — but now you're 2 bytes off because the call
+return address was consumed in the wrong place.
+
+The safest pattern is exactly what the working BIOS does: the wrapper does call _isr_floppy where _isr_floppy is a normal C function (not declared as   
+interrupt), and the wrapper handles all register save/restore, stack switch, EI, and RETI. The C function just does its work and returns with a plain
+RET.                                                                                                                                                    
+  
