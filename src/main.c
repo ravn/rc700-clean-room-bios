@@ -89,7 +89,18 @@ static const fdf_t  *cur_fdf;
 static byte  dirbuf[128];            /* shared directory buffer */
 static byte  csv[2][32];             /* check vectors for drives A, B */
 static byte  alv[2][71];             /* allocation vectors for drives A, B */
-static word  dph_dpb_ptr[2];         /* DPB pointer in each DPH */
+
+/* DPH for drives A and B — BDOS dereferences this pointer */
+typedef struct {
+    word xlt;       /* translation table (0=none, BIOS does translation) */
+    word scratch[3]; /* BDOS scratch area */
+    word dirbf;     /* directory buffer pointer */
+    word dpb;       /* DPB pointer */
+    word csv;       /* check vector pointer */
+    word alv;       /* allocation vector pointer */
+} dph_t;
+
+static dph_t dph[2];
 
 /* Host-sector physical I/O through the floppy driver.
  * These are the callbacks for the deblocking algorithm. */
@@ -454,9 +465,16 @@ word bios_seldsk(byte disk) {
     deblock_state.secmsk = cur_fspa->sector_mask;
     deblock_state.secshf = cur_fspa->sector_shift;
 
-    /* Return DPH address — for now return a non-zero sentinel.
-     * Real implementation needs proper DPH structures at fixed addresses. */
-    return 1;  /* non-zero = success */
+    /* Set up DPH for this drive */
+    if (disk < 2) {
+        dph[disk].xlt = 0;  /* no XLT — BIOS does translation internally */
+        dph[disk].dirbf = (word)(size_t)dirbuf;
+        dph[disk].dpb = (word)(size_t)cur_fspa->dpb;
+        dph[disk].csv = (word)(size_t)csv[disk];
+        dph[disk].alv = (word)(size_t)alv[disk];
+        return (word)(size_t)&dph[disk];
+    }
+    return 0;  /* drives beyond B not supported */
 }
 
 /* SETTRK: Set track */

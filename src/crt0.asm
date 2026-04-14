@@ -188,7 +188,11 @@ _wrap_punch:
     jp   _bios_punch
 _wrap_seldsk:
     ld   a, c
-    jp   _bios_seldsk
+    call _bios_seldsk
+    ; CP/M expects DPH in HL. SDCC may return in DE or HL.
+    ; Ensure HL has the result.
+    ex   de, hl
+    ret
 _wrap_settrk:
     ld   h, b
     ld   l, c
