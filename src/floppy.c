@@ -96,10 +96,11 @@ void fdc_wait_idle(void) {
     }
 }
 
-/* Clear completion flag before each FDC operation.
- * CTC Ch.3 is armed once at init and stays armed — do NOT re-arm
- * per operation (the 0xD7 software reset creates timing windows
- * where the FDC INTRQ edge is missed). */
+/* Clear completion flag and re-arm CTC Ch.3 before each FDC operation.
+ * The working BIOS arms CTC Ch.3 once at init (counter auto-reloads),
+ * but MAME's CTC may not auto-reload correctly, so we re-arm each time.
+ * The 0xC7 mode byte omits bit 4 (software reset) to avoid resetting
+ * the trigger state — only reloads the time constant. */
 static void fdc_prepare(void) {
     fdc_isr_state.complete = 0;
 }

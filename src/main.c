@@ -232,9 +232,8 @@ void bios_boot(void) {
 #ifdef BIOS_WITH_CRT0
     z80_setup_im2();  /* switches to our ISR vectors — ISR must see valid display_buf */
 
-    /* Initialize CTC Ch.3 once — counter mode, interrupt enabled, count 1.
-     * Per working BIOS: armed once at init, never re-armed per operation.
-     * Each FDC INTRQ pulse triggers one interrupt automatically. */
+    /* Initialize CTC Ch.3 (floppy) - counter mode, int enabled, count 1.
+     * Ch.0/Ch.1 (baud) and Ch.2 (display) left as configured by PROM. */
     __asm
         ld a, #0xD7     ; counter mode, int enabled, rising edge, reset
         out (0x0F), a   ; CTC Ch.3
