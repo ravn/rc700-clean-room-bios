@@ -269,6 +269,30 @@ def main():
     # Update boot sector entry point to loader stub (0x0280)
     update_boot_sector(tracks, 0x0280)  # loader stub address
 
+    # Inject CCP+BDOS onto track 1 (if binary exists)
+    ccp_bdos_path = os.path.join(os.path.dirname(bios_file), '..', 'cpm', 'ccp_bdos.bin')
+    if not os.path.exists(ccp_bdos_path):
+        ccp_bdos_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'cpm', 'ccp_bdos.bin')
+    if os.path.exists(ccp_bdos_path):
+        with open(ccp_bdos_path, 'rb') as f:
+            ccp_data = f.read()
+        # Write CCP+BDOS to track 1 head 0, sequential 512-byte sectors
+        for t in tracks:
+            if t['cyl'] == 1 and t['head'] == 0:
+                offset = 0
+                for sec_num in sorted(t['sectors'].keys()):
+                    if offset >= len(ccp_data):
+                        break
+                    chunk = ccp_data[offset:offset + t['secsize']]
+                    if len(chunk) < t['secsize']:
+                        chunk = chunk + bytes(t['secsize'] - len(chunk))
+                    t['sectors'][sec_num] = chunk
+                    offset += t['secsize']
+                print(f"  CCP+BDOS: {len(ccp_data)} bytes written to track 1 ({offset} bytes in {offset // t['secsize']} sectors)")
+                break
+    else:
+        print(f"  WARNING: CCP+BDOS not found at {ccp_bdos_path}")
+
     # Rebuild and write
     output_data = rebuild_imd(header, tracks)
     with open(output_imd, 'wb') as f:
