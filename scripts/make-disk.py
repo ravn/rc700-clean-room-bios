@@ -276,19 +276,25 @@ def main():
     if os.path.exists(ccp_bdos_path):
         with open(ccp_bdos_path, 'rb') as f:
             ccp_data = f.read()
-        # Write CCP+BDOS to track 1 head 0, sequential 512-byte sectors
+        # Write CCP+BDOS to track 1 head 0 using the 8" DD MFM interleave.
+        # The BIOS reads host sectors 0,1,2,... which translate via tran8
+        # to physical sectors 1,5,9,13,2,6,10,14,3,7,11,15,4,8,12.
+        # So host sector 0 (first 512B of CCP) goes to physical sector 1,
+        # host sector 1 (next 512B) goes to physical sector 5, etc.
+        tran8 = [1, 5, 9, 13, 2, 6, 10, 14, 3, 7, 11, 15, 4, 8, 12]
         for t in tracks:
             if t['cyl'] == 1 and t['head'] == 0:
-                offset = 0
-                for sec_num in sorted(t['sectors'].keys()):
+                for host_sec in range(len(tran8)):
+                    offset = host_sec * t['secsize']
                     if offset >= len(ccp_data):
                         break
+                    phys_sec = tran8[host_sec]
                     chunk = ccp_data[offset:offset + t['secsize']]
                     if len(chunk) < t['secsize']:
                         chunk = chunk + bytes(t['secsize'] - len(chunk))
-                    t['sectors'][sec_num] = chunk
-                    offset += t['secsize']
-                print(f"  CCP+BDOS: {len(ccp_data)} bytes written to track 1 ({offset} bytes in {offset // t['secsize']} sectors)")
+                    t['sectors'][phys_sec] = chunk
+                secs_written = min(len(tran8), (len(ccp_data) + t['secsize'] - 1) // t['secsize'])
+                print(f"  CCP+BDOS: {len(ccp_data)} bytes interleaved to track 1 ({secs_written} sectors)")
                 break
     else:
         print(f"  WARNING: CCP+BDOS not found at {ccp_bdos_path}")
