@@ -171,6 +171,7 @@ _isr_fdc_wrapper:
     push ix
     push iy
     call _isr_floppy_complete
+    in   a, (0F8H)          ; read DMA status to clear terminal count
     pop  iy
     pop  ix
     pop  bc

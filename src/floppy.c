@@ -118,10 +118,8 @@ void fdc_recalibrate(floppy_t *fl, byte drive) {
     fdc_send_byte(FDC_CMD_RECALIBRATE);
     fdc_send_byte(drive & 0x03);
     fdc_wait_complete();
-    /* ISR set flag — now do SENSE INTERRUPT in mainline */
-    byte st0, pcn;
-    fdc_sense_interrupt(&st0, &pcn);
-    fl->last_st0 = st0;
+    /* ISR already did SENSE INTERRUPT and saved ST0 */
+    fl->last_st0 = fdc_isr_state.st0;
     fl->current_track = 0;
 }
 
@@ -131,9 +129,7 @@ void fdc_seek(floppy_t *fl, byte drive, byte cylinder) {
     fdc_send_byte(drive & 0x03);
     fdc_send_byte(cylinder);
     fdc_wait_complete();
-    byte st0, pcn;
-    fdc_sense_interrupt(&st0, &pcn);
-    fl->last_st0 = st0;
+    fl->last_st0 = fdc_isr_state.st0;
     fl->current_track = cylinder;
 }
 
@@ -161,30 +157,20 @@ void dma_setup(word addr, word count, byte mode) {
 
 /* Polling-based READ DATA: send 9 command bytes, DMA runs,
  * then poll for result phase (wait_rqm_read blocks until done). */
-/* Debug: scrolling T/S/H display at bottom of screen */
-static byte dbg_col = 0;
-#define DBG_ROW  24
+/* Debug: T/S/H display on lines 12-24, wrapping */
+static word dbg_pos = 12 * 80;  /* start at row 12 */
 static void dbg_hex(byte val) {
     const char hex[] = "0123456789ABCDEF";
-    byte *p = (byte *)(size_t)(0xF800 + DBG_ROW * 80 + dbg_col);
-    *p = hex[(val >> 4) & 0xF];
-    *(p+1) = hex[val & 0xF];
-    dbg_col += 2;
+    ((byte *)0xF800)[dbg_pos++] = hex[(val >> 4) & 0xF];
+    ((byte *)0xF800)[dbg_pos++] = hex[val & 0xF];
 }
 static void dbg_char(byte c) {
-    *(byte *)(size_t)(0xF800 + DBG_ROW * 80 + dbg_col) = c;
-    dbg_col++;
+    ((byte *)0xF800)[dbg_pos++] = c;
 }
 
 int floppy_read_sector(floppy_t *fl, byte drive, byte cylinder, byte head,
                        byte sector, const fdf_t *fdf, word dma_addr) {
-    /* Debug: T=xx S=xx H=x at bottom of screen */
-    if (dbg_col > 70) {
-        /* Clear line and reset */
-        for (byte i = 0; i < 80; i++)
-            *(byte *)(size_t)(0xF800 + DBG_ROW * 80 + i) = 0x20;
-        dbg_col = 0;
-    }
+    if (dbg_pos >= 25 * 80) dbg_pos = 12 * 80;
     dbg_char('T'); dbg_hex(cylinder);
     dbg_char('S'); dbg_hex(sector);
     dbg_char('H'); dbg_char('0' + head);
@@ -209,16 +195,13 @@ int floppy_read_sector(floppy_t *fl, byte drive, byte cylinder, byte head,
     fdc_send_byte(fdf->gap);
     fdc_send_byte((byte)(fdf->n == 0 ? 0x80 : 0xFF));
 
-    /* DMA runs autonomously. ISR sets flag when FDC fires INT. */
+    /* DMA runs autonomously. ISR reads results and clears INTRQ. */
     fdc_wait_complete();
-    /* Mainline reads result bytes */
-    byte st0, st1, st2, rc, rh, rr, rn;
-    fdc_read_results(&st0, &st1, &st2, &rc, &rh, &rr, &rn);
+    /* ISR saved ST0/ST1 */
+    fl->last_st0 = fdc_isr_state.st0;
+    fl->last_st1 = fdc_isr_state.st1;
 
-    fl->last_st0 = st0;
-    fl->last_st1 = st1;
-
-    return (st0 & ST0_IC_MASK) == ST0_NT ? 0 : 1;
+    return (fl->last_st0 & ST0_IC_MASK) == ST0_NT ? 0 : 1;
 }
 
 int floppy_write_sector(floppy_t *fl, byte drive, byte cylinder, byte head,
@@ -243,13 +226,10 @@ int floppy_write_sector(floppy_t *fl, byte drive, byte cylinder, byte head,
     fdc_send_byte((byte)(fdf->n == 0 ? 0x80 : 0xFF));
 
     fdc_wait_complete();
-    byte st0, st1, st2, rc, rh, rr, rn;
-    fdc_read_results(&st0, &st1, &st2, &rc, &rh, &rr, &rn);
+    fl->last_st0 = fdc_isr_state.st0;
+    fl->last_st1 = fdc_isr_state.st1;
 
-    fl->last_st0 = st0;
-    fl->last_st1 = st1;
-
-    return (st0 & ST0_IC_MASK) == ST0_NT ? 0 : 1;
+    return (fl->last_st0 & ST0_IC_MASK) == ST0_NT ? 0 : 1;
 }
 
 int floppy_read_with_retry(floppy_t *fl, byte drive, byte cylinder, byte head,

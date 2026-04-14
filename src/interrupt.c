@@ -96,9 +96,32 @@ __sfr __at(0x0F) isr_ctc_ch3;
 #endif
 
 void isr_floppy_complete(void) {
-    /* Minimal ISR: just set the flag. Mainline does all FDC I/O.
-     * Reading FDC ports inside the ISR caused hangs (RQM waits)
-     * and stack overflow from repeated ISR triggering. */
+    /* Must read FDC results to clear INTRQ. If INTRQ stays high,
+     * the CTC can't detect the next rising edge and stops firing.
+     * Also read DMA status to clear terminal count. */
+
+    /* Check CB (MSR bit 4) to determine result type */
+    byte msr = ISR_FDC_MSR;
+    if (msr & 0x10) {
+        /* CB=1: result phase (READ/WRITE) — read up to 7 result bytes */
+        fdc_isr_state.st0 = ISR_FDC_DATA;
+        fdc_isr_state.st1 = ISR_FDC_DATA;
+        /* Read remaining 5 bytes, checking CB after each */
+        for (byte i = 0; i < 5; i++) {
+            if (!(ISR_FDC_MSR & 0x10)) break;
+            (void)ISR_FDC_DATA;
+        }
+    } else {
+        /* CB=0: seek/recalibrate complete — SENSE INTERRUPT STATUS */
+#ifdef __SDCC
+        isr_fdc_data = 0x08;  /* send SENSE INT command */
+#else
+        hal_out(0x05, 0x08);
+#endif
+        fdc_isr_state.st0 = ISR_FDC_DATA;
+        (void)ISR_FDC_DATA;  /* PCN */
+    }
+
     fdc_isr_state.complete = 0xFF;
 }
 

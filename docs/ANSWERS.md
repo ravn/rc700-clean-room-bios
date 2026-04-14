@@ -798,3 +798,119 @@ For your purposes with DSM=449, 57 bytes is the correct minimum. 71 bytes is saf
 room if you ever support a larger format. Using less than 57 will cause BDOS to corrupt memory past the end of the ALV buffer.
 
 The formula from the CP/M System Interface Guide is: ALV size = (DSM/8) + 1 bytes.                                       
+
+
+----
+
+  ---                                                                                                                                                     
+No, the working BIOS does NOT re-arm CTC Ch.3. It is armed once at init and never touched again.
+
+I re-checked every relevant code path in both the C reimplementation and the original assembly BIOS. CTC Ch.3 is:
+- Programmed once during init (0xD7 + 0x01)
+- Never re-armed in the floppy ISR
+- Never re-armed in mainline FDC code
+- Never re-armed anywhere else
+
+The CTC in counter mode with time constant 1 auto-reloads after each count-down. Each FDC INTRQ edge triggers one interrupt, indefinitely, without    
+re-arming. The working BIOS runs hundreds of FDC operations per boot without touching CTC Ch.3 after init.
+
+The working BIOS DOES use DI/EI around specific FDC operations
+
+This is important. The FDC command sequences run with interrupts disabled:
+
+GNCOM (general 9-byte command) — original assembly (FLOPPY.MAC:873-911):                                                                                
+GNCOM:  PUSH AF                                                                                                                                       
+DI              ← interrupts off before first FDC write                                                                                         
+CALL FLO2       ; wait RQM                                                                                                                    
+...             ; (9 bytes sent to FDC with FLO2 waits between each)                                                                            
+EI              ← interrupts re-enabled after last byte                                                                                       
+RET
+
+C reimplementation (bios.c:382-395):                                                                                                                    
+static void fdc_general_cmd(byte cmd, const byte *fdfp) {                                                                                               
+hal_di();           // ← DI before command sequence                                                                                               
+fdc_write(cmd + fdfp[0]);                                                                                                                           
+fdc_write(dskno);                                                                                                                                   
+... (7 more fdc_write calls)                                                                                                                        
+hal_ei();           // ← EI after command sequence                                                                                                  
+}
+
+DMA setup (bios.c:364-376):                                                                                                                             
+static void flp_dma_setup(void) {                                                                                                                       
+hal_di();           // ← DI during DMA programming                                                                                                
+... (mask, mode, address, count, unmask)                                                                                                            
+hal_ei();           // ← EI after DMA ready                                                                                                         
+}
+
+Flag clear (bios.c:338-343):                                                                                                                          
+static void clfit(void) {                                                                                                                               
+hal_di();           // ← DI while clearing flag                                                                                                   
+fl_flg = 0;                                                                                                                                         
+hal_ei();  
+}
+
+However, the wait loop itself (watir) runs with interrupts enabled — it must, otherwise the ISR can never fire:                                         
+static void watir(void) {                                                                                                                               
+while (!fl_flg)     // spins with EI — ISR can fire here                                                                                          
+;                                                                                                                                               
+}
+
+And the FDC seek/recalibrate commands do NOT have DI/EI around them:                                                                                    
+static void fdc_seek(void) {                                                                                                                            
+fdc_write(0x0F);    // no DI — interrupts enabled                                                                                                 
+fdc_write(dskno & 3);                                                                                                                               
+fdc_write(actra);                                                                                                                                   
+}
+
+So the sequence for a sector read is:
+1. clfit() — DI, clear flag, EI
+2. flp_dma_setup() — DI, program DMA, EI
+3. fdc_general_cmd() — DI, send 9 bytes, EI
+4. watir() — spin with EI until ISR sets flag
+
+The display ISR CAN fire between steps 1-2, 2-3, and during step 4. But it CANNOT fire during the 9-byte FDC command sequence (DI is held from before   
+byte 1 to after byte 9).
+
+The real question: what's different about your setup that causes Ch.3 to stop after ~12 operations?
+
+Since the working BIOS doesn't re-arm, and CTC counter mode auto-reloads, the issue is almost certainly not with the CTC counter state. Here are the    
+most likely causes:
+
+1. MAME's sp_sav / stack-switch corruption from nested ISRs. The working BIOS uses a single sp_sav variable for all __naked ISRs (CRT, floppy, keyboard,
+   SIO-A RX). If two ISRs use the same sp_sav and one nests inside the other, sp_sav gets overwritten and the first ISR restores the wrong SP. The working
+   BIOS prevents this because:
+- The floppy ISR runs during watir() (interrupts enabled), the CRT ISR can preempt it
+- BUT: isr_enter_full does ld (sp_sav), sp then ld sp, ISTACK immediately — if the CRT ISR fires between those two instructions, sp_sav is corrupted
+
+Actually, the working BIOS avoids this specific problem because isr_enter_full is a single inline asm block — the two instructions are adjacent with no
+window for interrupts between them (the Z80 checks for interrupts only between instructions, and both ld (nn),sp and ld sp,nn are single instructions).
+
+But if the CRT ISR fires DURING the floppy ISR (because the floppy ISR re-enables interrupts... wait, it doesn't — it runs with DI throughout via       
+isr_enter_full / isr_exit_full). So nested ISRs can't happen here.
+
+2. The CTC's internal daisy chain state is getting stuck. After ~12 operations, something leaves a CTC channel in "interrupt under service" state       
+   without RETI. The CTC tracks in-service state for each channel. If Ch.3's in-service bit gets stuck (because RETI wasn't seen, or was seen by the wrong
+   channel), Ch.3 blocks itself.
+
+One specific scenario: if the floppy ISR's RETI is being "claimed" by a different device in the daisy chain (e.g., the SIO sees the RETI and clears its
+own in-service state instead of the CTC), then Ch.3's in-service state accumulates. MAME's daisy chain emulation processes RETI for the highest-priority
+device that has an interrupt in service. If the SIO has a pending/in-service interrupt that was never acknowledged, it could steal the RETI from the   
+CTC.
+
+3. SIO interrupts are enabled but not serviced. Look at your SIO initialization. The working BIOS initializes the SIO with WR1 = 0x1B (Ch.A) and WR1 =  
+   0x1F (Ch.B) — both enable receive interrupts. If your reimplementation enables SIO interrupts but your IVT points to stubs that don't do proper EI;
+   RETI, or if SIO asserts an interrupt that's never acknowledged, the daisy chain clogs. The SIO sits between the CTC and PIO in the MAME daisy chain     
+   (ctc1 → sio1 → pio). A stuck SIO interrupt won't block CTC interrupts (CTC is higher priority), but a stuck SIO RETI could steal the CTC's RETI.
+
+4. Check: does your code initialize the SIO? If you don't program the SIO at all, it may power up in an undefined interrupt state. The working BIOS     
+   sends a channel reset (WR0=0x18) to both SIO channels, which clears any pending interrupt conditions. If you skip SIO init, the SIO might assert an
+   interrupt line that never gets cleared, and its daisy chain IEO stays low. Since CTC is higher priority than SIO, this shouldn't block CTC directly —   
+   but MAME's RETI handling might get confused.
+
+My best guess for ~12 operations: the SIO is generating spurious interrupts (RX buffer overrun, status change, or TX buffer empty) that accumulate      
+in-service state because the handlers don't properly clear the SIO condition. After enough accumulation, something in MAME's daisy chain emulation
+breaks. Try: either fully initialize the SIO with channel resets and proper WR1 configuration as the working BIOS does, or disable all SIO interrupts   
+(WR1=0x00 on both channels) and see if Ch.3 stops dying.
+
+✻ Cooked for 1m 55s
+
