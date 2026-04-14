@@ -24,7 +24,7 @@
     ; CP/M passes params in BC/DE. sdcccall(1) expects A (byte) or HL (word).
     ; Wrappers convert register conventions before calling C functions.
     jp  _bios_boot          ; +0x00 BOOT (no params)
-    jp  _bios_wboot         ; +0x03 WBOOT (no params)
+    jp  _wrap_wboot         ; +0x03 WBOOT (reset SP first)
     jp  _bios_const         ; +0x06 CONST (no params)
     jp  _bios_conin         ; +0x09 CONIN (no params)
     jp  _wrap_conout        ; +0x0C CONOUT (C=char → A)
@@ -187,6 +187,10 @@ _isr_fdc_wrapper:
 _isr_dummy:
     ei
     reti
+
+_wrap_wboot:
+    ld   sp, 0F500H      ; reset SP to BIOS stack on every warm boot
+    jp   _bios_wboot
 
     ; ---- CP/M → sdcccall(1) register wrappers ----
     ; CP/M: byte param in C, word param in BC, 2nd word in DE

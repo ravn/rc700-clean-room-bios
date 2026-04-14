@@ -364,26 +364,9 @@ byte bios_conin(void) {
     return ch;
 }
 
-/* CONOUT: Console output — IOBYTE-routed (Section 6.2) */
+/* CONOUT: CRT only for now — serial disabled */
 void bios_conout(byte c) {
-    byte mode = iobyte_con_mode(iobyte_val);
-
-    switch (mode) {
-    case CON_TTY:
-        /* SIO-B serial + CRT — skip serial until SIO initialized */
-        crt_output(c);
-        break;
-    case CON_CRT:
-        crt_output(c);
-        break;
-    case CON_BAT:
-        bios_list(c);
-        break;
-    case CON_UC1:
-        /* Joined — skip serial until SIO initialized */
-        crt_output(c);
-        break;
-    }
+    crt_output(c);
 }
 
 /* PUNCH: Punch output — IOBYTE-routed (Section 6.4) */
