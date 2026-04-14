@@ -267,25 +267,10 @@ void bios_boot(void) {
     fdc_wait_idle();
     fdc_specify(0x4F, 0x20);  /* SRT=4ms, HUT=240ms, HLT=16ms, DMA mode */
 
-    /* Check drive ready before RECALIBRATE (per working BIOS).
-     * SENSE DRIVE STATUS (0x04) returns ST3 with RDY bit (bit 5). */
-    fdc_send_byte(0x04);      /* SENSE DRIVE STATUS command */
-    fdc_send_byte(0x00);      /* drive 0, head 0 */
-    {
-        byte st3 = fdc_read_byte();
-        /* Display ST3 for diagnostics */
-        const char *hex = "0123456789ABCDEF";
-        crt_output('S'); crt_output('T'); crt_output('3'); crt_output('=');
-        crt_output(hex[(st3 >> 4) & 0xF]);
-        crt_output(hex[st3 & 0xF]);
-        crt_output(' ');
-        if (st3 & 0x20) {
-            crt_output('R'); crt_output('D'); crt_output('Y');
-        } else {
-            crt_output('N'); crt_output('R'); crt_output('D');
-        }
-        crt_output('\r'); crt_output('\n');
-    }
+    /* SENSE DRIVE STATUS to check drive ready */
+    fdc_send_byte(0x04);
+    fdc_send_byte(0x00);
+    (void)fdc_read_byte();  /* ST3 — ignore for now */
 
     fdc_recalibrate(&floppy_state, 0);
 

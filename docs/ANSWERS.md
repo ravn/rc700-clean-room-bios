@@ -701,4 +701,100 @@ return address was consumed in the wrong place.
 The safest pattern is exactly what the working BIOS does: the wrapper does call _isr_floppy where _isr_floppy is a normal C function (not declared as   
 interrupt), and the wrapper handles all register save/restore, stack switch, EI, and RETI. The C function just does its work and returns with a plain
 RET.                                                                                                                                                    
-  
+---
+Here are the answers:
+                                                                                                                                                          
+---                                                                                                                                                     
+1. DPH layout: correct, matches CP/M 2.2 exactly
+
+Your layout matches the working BIOS and the CP/M 2.2 System Interface Guide (section 6.10). The field order is:
+
+┌────────┬──────────────────────────────────────┬──────┐                                                                                              
+│ Offset │                Field                 │ Size │                                                                                                
+├────────┼──────────────────────────────────────┼──────┤                                                                                              
+│ +0     │ XLT (sector translate table pointer) │ 2    │                                                                                              
+├────────┼──────────────────────────────────────┼──────┤
+│ +2     │ scratch[3] (BDOS workspace)          │ 6    │                                                                                                
+├────────┼──────────────────────────────────────┼──────┤                                                                                                
+│ +8     │ DIRBF (directory buffer pointer)     │ 2    │                                                                                                
+├────────┼──────────────────────────────────────┼──────┤                                                                                                
+│ +10    │ DPB (disk parameter block pointer)   │ 2    │                                                                                              
+├────────┼──────────────────────────────────────┼──────┤                                                                                              
+│ +12    │ CSV (check vector pointer)           │ 2    │
+├────────┼──────────────────────────────────────┼──────┤                                                                                                
+│ +14    │ ALV (allocation vector pointer)      │ 2    │
+└────────┴──────────────────────────────────────┴──────┘
+
+Total: 16 bytes. This is identical to the working BIOS (bios.h:26-33).
+
+2. DPB in rodata: yes, that's fine — BDOS only reads it
+
+The working BIOS declares all four DPBs as const:
+
+const DPB dpb8 = { 120, 4, 15, 0, 449, 127, 192, 0, 32, 2 };
+
+BDOS reads the DPB through the pointer in the DPH but never writes to it. The DPB is effectively read-only from BDOS's perspective. Having it in        
+rodata/const is correct and is what the working BIOS does.
+
+Note: the working BIOS updates the DPB pointer in the DPH on every SELDSK call (dph->dpb = dpblck; at bios.c:1551) because the format can change (the   
+RC702 supports multiple disk formats and switches DPB based on the media type). If you only support one format, a fixed pointer is fine.
+
+3. SELDSK return: sdcccall(1) returns word in DE, CP/M expects HL — EX DE,HL is correct
+
+The working BIOS does exactly the same thing you're doing. Both the SDCC and clang builds need the EX DE,HL:
+
+SDCC (bios.c:1490-1496):                                                                                                                                
+ld  a, c            ; CP/M drive in C → sdcccall(1) byte in A                                                                                         
+call _bios_seldsk_c ; returns DPH pointer in DE (sdcccall(1))                                                                                           
+ex  de, hl          ; CP/M expects result in HL                                                                                                         
+ret
+
+Clang (bios_shims.s:120-126):                                                                                                                           
+ld  a, c                                                                                                                                              
+call _bios_seldsk_c                                                                                                                                     
+ex  de, hl          ; sdcccall(1) returns pointer in DE → CP/M expects HL                                                                             
+ret
+
+Your EX DE,HL is correct. If SELDSK returns 0 (invalid drive), that becomes HL=0, which is the CP/M convention for "drive not available."
+
+4. ALV/CSV/DIRBF placement requirements
+
+All must be in writable RAM. BDOS writes to all three:
+
+- DIRBF (128 bytes): must be shared across all drives — both DPHs point to the same dirbf. The working BIOS has a single byte dirbf[128] and both DPH   
+  entries reference it (bios.c:164, bios_hw_init.c:258,261,271,279).
+- CSV (check vector): must be per-drive — drive 0 gets chk0[32], drive 1 gets chk1[32]. BDOS writes to these to detect disk changes on removable media.
+- ALV (allocation vector): must be per-drive — drive 0 gets all0[71], drive 1 gets all1[71]. BDOS writes the allocation bitmap here.
+
+None of these can be in rodata/const. They're all BSS in the working BIOS.
+
+5. Scratch words: zeroed by BIOS, but BDOS reinitializes them
+
+The working BIOS zeros the entire DPH at init:
+
+SDCC path: memset(dph, 0, sizeof(DPH)); (bios_hw_init.c:270)
+
+Clang path: static const DPH dph0 = { 0, {0,0,0}, ... }; then copy to dpbase[0] (bios_hw_init.c:257-263)
+
+So yes, scratch words are initialized to 0. However, BDOS uses these scratch words for its own internal bookkeeping (track buffering state) and will    
+overwrite them. Zeroing them is just good hygiene — it ensures clean state on cold boot. BDOS doesn't require them to be zero; it initializes them    
+itself.
+
+6. ALV sizing: you need 57 bytes, but the working BIOS allocates 71
+
+With DSM=449:
+- Minimum: (DSM/8) + 1 = (449/8) + 1 = 56 + 1 = 57 bytes
+
+But the working BIOS allocates 71 bytes (bios.c:167):
+
+byte all0[71], chk0[32];                                                                                                                              
+byte all1[71], chk1[32];
+
+Why 71? This is the allocation vector size for the largest format that could appear on any drive. The RC702 BIOS supports format switching — a drive    
+could have an 8" DD disk (DSM=449, needs 57 bytes) or an 8" DD 256B/sector disk (DSM=471, needs 60 bytes). The 71-byte allocation covers all possible   
+formats with margin.
+
+For your purposes with DSM=449, 57 bytes is the correct minimum. 71 bytes is safe and is what the working BIOS uses. Using 57 will work but leaves no   
+room if you ever support a larger format. Using less than 57 will cause BDOS to corrupt memory past the end of the ALV buffer.
+
+The formula from the CP/M System Interface Guide is: ALV size = (DSM/8) + 1 bytes.                                       
