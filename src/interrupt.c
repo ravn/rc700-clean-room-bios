@@ -100,53 +100,68 @@ void isr_floppy_complete(void) {
      * the CTC can't detect the next rising edge and stops firing.
      * Also read DMA status to clear terminal count. */
 
-    /* Per uPD765 datasheet and working BIOS: poll RQM+DIO before each
-     * result byte read, and check CB with delay after each byte.
-     * Reading without RQM is undefined. Not reading all bytes leaves
-     * the FDC in result phase (CB stuck), blocking new commands. */
+    /* Read FDC results per uPD765 protocol.
+     * Poll RQM+DIO before each byte. Check CB with delay after each.
+     * Count bytes read and display on screen for verification. */
 
-#ifdef __SDCC
-    /* Z80 ISR: poll RQM before each result byte, check CB with delay.
-     * Per uPD765 datasheet and working BIOS. */
+    static byte isr_count = 0;
     byte msr = ISR_FDC_MSR;
+    byte nread = 0;
+
     if (msr & 0x10) {
-        /* CB=1: result phase — read all result bytes */
+        /* CB=1: result phase (READ/WRITE) — exactly 7 bytes */
         byte results[7];
         for (byte i = 0; i < 7; i++) {
-            while ((ISR_FDC_MSR & 0xC0) != 0xC0) ;
+            /* Wait for RQM+DIO=11 (byte ready) */
+            while ((ISR_FDC_MSR & 0xC0) != 0xC0)
+                ;
             results[i] = ISR_FDC_DATA;
-            /* Delay: 4 MSR reads per working BIOS */
-            (void)ISR_FDC_MSR; (void)ISR_FDC_MSR;
-            (void)ISR_FDC_MSR; (void)ISR_FDC_MSR;
-            if (!(ISR_FDC_MSR & 0x10)) break;
+            nread++;
+            /* Delay: 4 MSR reads before checking CB */
+            (void)ISR_FDC_MSR;
+            (void)ISR_FDC_MSR;
+            (void)ISR_FDC_MSR;
+            (void)ISR_FDC_MSR;
+            if (!(ISR_FDC_MSR & 0x10))
+                break;  /* CB cleared */
         }
         fdc_isr_state.st0 = results[0];
         fdc_isr_state.st1 = results[1];
     } else {
-        /* CB=0: SENSE INTERRUPT STATUS */
-        while ((ISR_FDC_MSR & 0xC0) != 0x80) ;
+        /* CB=0: SENSE INTERRUPT STATUS — 1 cmd + 2 result bytes */
+        /* Wait for RQM, DIO=0 */
+        while ((ISR_FDC_MSR & 0xC0) != 0x80)
+            ;
+#ifdef __SDCC
         isr_fdc_data = 0x08;
-        while ((ISR_FDC_MSR & 0xC0) != 0xC0) ;
-        fdc_isr_state.st0 = ISR_FDC_DATA;
-        while ((ISR_FDC_MSR & 0xC0) != 0xC0) ;
-        (void)ISR_FDC_DATA;
-    }
 #else
-    /* Native: FDC simulator handles results synchronously */
-    byte msr = hal_in(0x04);
-    if (msr & 0x10) {
-        fdc_isr_state.st0 = hal_in(0x05);
-        fdc_isr_state.st1 = hal_in(0x05);
-        for (int i = 0; i < 5; i++) {
-            if (!(hal_in(0x04) & 0x10)) break;
-            (void)hal_in(0x05);
-        }
-    } else {
         hal_out(0x05, 0x08);
-        fdc_isr_state.st0 = hal_in(0x05);
-        (void)hal_in(0x05);
-    }
 #endif
+        /* Wait for RQM+DIO (ST0 ready) */
+        while ((ISR_FDC_MSR & 0xC0) != 0xC0)
+            ;
+        fdc_isr_state.st0 = ISR_FDC_DATA;
+        nread++;
+        /* Wait for RQM+DIO (PCN ready) */
+        while ((ISR_FDC_MSR & 0xC0) != 0xC0)
+            ;
+        (void)ISR_FDC_DATA;
+        nread++;
+    }
+
+    /* Display ISR count and bytes read at row 24 col 0 */
+    {
+        const char hex[] = "0123456789ABCDEF";
+        volatile byte *p = (volatile byte *)0xF800 + 24 * 80;
+        p[0] = '#';
+        p[1] = hex[(isr_count >> 4) & 0xF];
+        p[2] = hex[isr_count & 0xF];
+        p[3] = ':';
+        p[4] = hex[nread & 0xF];
+        p[5] = (msr & 0x10) ? 'R' : 'S';  /* R=result, S=sense */
+        p[6] = ' ';
+        isr_count++;
+    }
 
     fdc_isr_state.complete = 0xFF;
 }
