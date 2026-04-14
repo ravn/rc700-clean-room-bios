@@ -108,14 +108,16 @@ static void fdc_wait_complete(void) {
 }
 
 /* Interrupt-driven seek/recalibrate: arm CTC Ch.3, send command,
- * wait for ISR (which does SENSE INTERRUPT for seek/recalibrate,
- * or reads 7 result bytes for READ/WRITE). */
+ * wait for ISR flag, then mainline does SENSE INTERRUPT. */
 void fdc_recalibrate(floppy_t *fl, byte drive) {
     fdc_arm_interrupt();
     fdc_send_byte(FDC_CMD_RECALIBRATE);
     fdc_send_byte(drive & 0x03);
     fdc_wait_complete();
-    fl->last_st0 = fdc_isr_state.st0;
+    /* ISR set flag — now do SENSE INTERRUPT in mainline */
+    byte st0, pcn;
+    fdc_sense_interrupt(&st0, &pcn);
+    fl->last_st0 = st0;
     fl->current_track = 0;
 }
 
@@ -125,7 +127,9 @@ void fdc_seek(floppy_t *fl, byte drive, byte cylinder) {
     fdc_send_byte(drive & 0x03);
     fdc_send_byte(cylinder);
     fdc_wait_complete();
-    fl->last_st0 = fdc_isr_state.st0;
+    byte st0, pcn;
+    fdc_sense_interrupt(&st0, &pcn);
+    fl->last_st0 = st0;
     fl->current_track = cylinder;
 }
 
@@ -174,13 +178,16 @@ int floppy_read_sector(floppy_t *fl, byte drive, byte cylinder, byte head,
     fdc_send_byte(fdf->gap);
     fdc_send_byte((byte)(fdf->n == 0 ? 0x80 : 0xFF));
 
-    /* DMA runs autonomously. ISR reads result bytes when done. */
+    /* DMA runs autonomously. ISR sets flag when FDC fires INT. */
     fdc_wait_complete();
+    /* Mainline reads result bytes */
+    byte st0, st1, st2, rc, rh, rr, rn;
+    fdc_read_results(&st0, &st1, &st2, &rc, &rh, &rr, &rn);
 
-    fl->last_st0 = fdc_isr_state.st0;
-    fl->last_st1 = fdc_isr_state.st1;
+    fl->last_st0 = st0;
+    fl->last_st1 = st1;
 
-    return (fl->last_st0 & ST0_IC_MASK) == ST0_NT ? 0 : 1;
+    return (st0 & ST0_IC_MASK) == ST0_NT ? 0 : 1;
 }
 
 int floppy_write_sector(floppy_t *fl, byte drive, byte cylinder, byte head,
@@ -205,11 +212,13 @@ int floppy_write_sector(floppy_t *fl, byte drive, byte cylinder, byte head,
     fdc_send_byte((byte)(fdf->n == 0 ? 0x80 : 0xFF));
 
     fdc_wait_complete();
+    byte st0, st1, st2, rc, rh, rr, rn;
+    fdc_read_results(&st0, &st1, &st2, &rc, &rh, &rr, &rn);
 
-    fl->last_st0 = fdc_isr_state.st0;
-    fl->last_st1 = fdc_isr_state.st1;
+    fl->last_st0 = st0;
+    fl->last_st1 = st1;
 
-    return (fl->last_st0 & ST0_IC_MASK) == ST0_NT ? 0 : 1;
+    return (st0 & ST0_IC_MASK) == ST0_NT ? 0 : 1;
 }
 
 int floppy_read_with_retry(floppy_t *fl, byte drive, byte cylinder, byte head,
