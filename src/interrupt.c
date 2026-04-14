@@ -104,63 +104,36 @@ void isr_floppy_complete(void) {
      * Poll RQM+DIO before each byte. Check CB with delay after each.
      * Count bytes read and display on screen for verification. */
 
-    static byte isr_count = 0;
     byte msr = ISR_FDC_MSR;
-    byte nread = 0;
 
     if (msr & 0x10) {
-        /* CB=1: result phase (READ/WRITE) — exactly 7 bytes */
-        byte results[7];
-        for (byte i = 0; i < 7; i++) {
-            /* Wait for RQM+DIO=11 (byte ready) */
-            while ((ISR_FDC_MSR & 0xC0) != 0xC0)
-                ;
-            results[i] = ISR_FDC_DATA;
-            nread++;
-            /* Delay: 4 MSR reads before checking CB */
-            (void)ISR_FDC_MSR;
-            (void)ISR_FDC_MSR;
-            (void)ISR_FDC_MSR;
-            (void)ISR_FDC_MSR;
-            if (!(ISR_FDC_MSR & 0x10))
-                break;  /* CB cleared */
-        }
-        fdc_isr_state.st0 = results[0];
-        fdc_isr_state.st1 = results[1];
+        /* CB=1: result phase — read all 7 bytes with RQM polling */
+        while ((ISR_FDC_MSR & 0xC0) != 0xC0) ;
+        fdc_isr_state.st0 = ISR_FDC_DATA;
+        while ((ISR_FDC_MSR & 0xC0) != 0xC0) ;
+        fdc_isr_state.st1 = ISR_FDC_DATA;
+        while ((ISR_FDC_MSR & 0xC0) != 0xC0) ;
+        (void)ISR_FDC_DATA;  /* ST2 */
+        while ((ISR_FDC_MSR & 0xC0) != 0xC0) ;
+        (void)ISR_FDC_DATA;  /* C */
+        while ((ISR_FDC_MSR & 0xC0) != 0xC0) ;
+        (void)ISR_FDC_DATA;  /* H */
+        while ((ISR_FDC_MSR & 0xC0) != 0xC0) ;
+        (void)ISR_FDC_DATA;  /* R */
+        while ((ISR_FDC_MSR & 0xC0) != 0xC0) ;
+        (void)ISR_FDC_DATA;  /* N */
     } else {
-        /* CB=0: SENSE INTERRUPT STATUS — 1 cmd + 2 result bytes */
-        /* Wait for RQM, DIO=0 */
-        while ((ISR_FDC_MSR & 0xC0) != 0x80)
-            ;
+        /* CB=0: SENSE INTERRUPT STATUS */
+        while ((ISR_FDC_MSR & 0xC0) != 0x80) ;
 #ifdef __SDCC
         isr_fdc_data = 0x08;
 #else
         hal_out(0x05, 0x08);
 #endif
-        /* Wait for RQM+DIO (ST0 ready) */
-        while ((ISR_FDC_MSR & 0xC0) != 0xC0)
-            ;
+        while ((ISR_FDC_MSR & 0xC0) != 0xC0) ;
         fdc_isr_state.st0 = ISR_FDC_DATA;
-        nread++;
-        /* Wait for RQM+DIO (PCN ready) */
-        while ((ISR_FDC_MSR & 0xC0) != 0xC0)
-            ;
-        (void)ISR_FDC_DATA;
-        nread++;
-    }
-
-    /* Display ISR count and bytes read at row 24 col 0 */
-    {
-        const char hex[] = "0123456789ABCDEF";
-        volatile byte *p = (volatile byte *)0xF800 + 24 * 80;
-        p[0] = '#';
-        p[1] = hex[(isr_count >> 4) & 0xF];
-        p[2] = hex[isr_count & 0xF];
-        p[3] = ':';
-        p[4] = hex[nread & 0xF];
-        p[5] = (msr & 0x10) ? 'R' : 'S';  /* R=result, S=sense */
-        p[6] = ' ';
-        isr_count++;
+        while ((ISR_FDC_MSR & 0xC0) != 0xC0) ;
+        (void)ISR_FDC_DATA;  /* PCN */
     }
 
     fdc_isr_state.complete = 0xFF;
