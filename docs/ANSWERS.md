@@ -402,3 +402,83 @@ Summary: what to check
 
 4. Wait — you said CTC vector base 0x08. The working BIOS uses vector base 0x00. With base 0x08, Ch.3 = 0x0E. Make sure your IVT has the floppy ISR at  
    byte offset 0x0E from the IVT start (the 8th word entry, index 7).                                 
+---
+
+Now I have the complete picture. Here are the answers:
+                                                                                                                                                          
+---                                                                                                                                                     
+1. No timeout in the BIOS — it hangs forever
+
+The BIOS's watir() is a bare spin loop:
+
+static void watir(void) {                                                                                                                             
+while (!fl_flg)                                                                                                                                     
+;                                                                                                                                             
+}
+
+There is no timeout. If the CTC Ch.3 interrupt doesn't fire, the BIOS hangs permanently. The sequence clfit(); fdc_seek(); wfitr(); will block forever  
+if the ISR never sets fl_flg.
+
+The PROM is different — it has a timeout. wait_fdc_ready() polls with 3ms delays up to 255 iterations (~765ms). On timeout it returns 1, and the caller
+handles the failure (typically prom1_if_present() or error halt). The PROM was designed for boot probing where the drive might not exist; the BIOS    
+assumes the drive works because CP/M is already running from it.
+
+2. CTC Ch.2 and Ch.3 re-arming: the critical detail
+
+Both working implementations re-arm CTC Ch.2 inside the display ISR. This is the key to understanding the CTC's behavior:
+
+PROM CRT ISR (rom.c:865-866):                                                                                                                           
+ctc2_write(0xD7);  /* rearm CTC Ch2: counter, interrupt */                                                                                            
+ctc2_write(0x01);  /* time constant = 1 */
+
+BIOS CRT ISR (bios.c:2003-2004):                                                                                                                      
+port_out(ctc2, 0xD7);  /* counter mode */                                                                                                               
+port_out(ctc2, 1);      /* count 1 */
+
+CTC Ch.3 is NOT re-armed — neither in the ISR nor in mainline code. It's programmed once at init (0xD7 + 0x01) and that's it. The counter counts down
+from 1 on the first FDC INTRQ pulse, fires, and... what happens next?
+
+This means CTC Ch.3 is a one-shot in counter mode with time constant 1. After it fires once, it needs another trigger pulse (FDC INTRQ) to count down   
+again. With time constant 1, each INTRQ pulse produces exactly one interrupt. It doesn't need re-arming because the next FDC operation will produce a
+new INTRQ pulse.
+
+CTC Ch.2 IS re-armed because the 8275 CRT's retrace signal is edge-triggered and the CTC needs to be told to expect the next one. Both ISRs write 0xD7 +
+0x01 to reset and re-arm the channel.
+
+3. Is the pattern sensitive to display ISR firing between arm and FDC INTRQ?
+
+No, and here's why: the CTC Ch.3 is armed once at boot (init_ctc / bios_hw_init) and stays armed. There's no "arm then wait" for Ch.3 — it's armed      
+permanently. The mainline code does:
+
+1. clfit() — DI, clear flag, EI
+2. Send FDC command (RECALIBRATE/SEEK)
+3. watir() / wfitr() — spin on flag
+
+The CTC Ch.3 counter is sitting at its time constant (1), waiting for an edge on TRG3 (FDC INTRQ). When the FDC eventually asserts INTRQ (seek          
+complete), the CTC counts 1→0, fires the interrupt, the ISR runs, sets the flag, and mainline wakes up.
+
+The display ISR firing in between is completely harmless. Ch.2 and Ch.3 are independent channels in the same CTC. Ch.2 firing, being serviced with RETI,
+and being re-armed does not affect Ch.3's counter state or trigger readiness at all.
+
+The only way Ch.2 blocks Ch.3 is the daisy chain priority issue I described earlier — if Ch.2's ISR doesn't execute RETI, Ch.3 is permanently blocked.
+
+4. The smoking gun: your CRT ISR must use RETI
+
+Given your symptoms:
+- Ch.2 (display) fires repeatedly ✓
+- Ch.3 (floppy) never fires ✗
+- CTC setup is correct (0xD7, 0x01, matching the working code)
+- IVT and IM2 are correct
+
+This is almost certainly the RETI issue. Inside the CTC, the internal daisy chain priority is Ch0 > Ch1 > Ch2 > Ch3. When Ch.2 fires and the ISR runs:
+
+- If ISR ends with RETI (ED 4D): the CTC sees the RETI on the bus, clears Ch.2's in-service flip-flop, IEO goes high, Ch.3 is unblocked.
+- If ISR ends with RET (C9): CPU returns, but the CTC never sees RETI, Ch.2 remains "in service", Ch.3 is permanently masked by the internal priority   
+  logic.
+
+The display still works with RET because: Ch.2 fires → ISR runs → RET returns → Ch.2 stays in-service → the re-arm code (0xD7) in the ISR includes bit 2
+(software reset), which resets the channel → the next CRT retrace triggers Ch.2 again. But Ch.3 never gets a chance because Ch.2's in-service state  
+blocks it between interrupts.
+
+To verify: temporarily disable the CRT ISR entirely (point the Ch.2 IVT entry at a stub that does only EI; RETI). If the floppy interrupt starts        
+working, you've confirmed the RETI problem.

@@ -72,7 +72,8 @@
       "Bash(awk -F'[=;]' '{gsub\\(/^ +| +$/,\"\",$2\\); print $2, $1}')",
       "Bash(perl -e 'alarm 10; exec @ARGV' build/native/test/test_floppy)",
       "Bash(echo \"exit=$?\")",
-      "WebFetch(domain:www.z88dk.org)"
+      "WebFetch(domain:www.z88dk.org)",
+      "Bash(awk 'NR>1{print prev}{prev=$0}')"
     ]
   },
   "prefersReducedMotion": true

@@ -96,19 +96,12 @@ void fdc_wait_idle(void) {
     }
 }
 
-/* Arm CTC Ch.3 and clear completion flag.
- * Must be called before sending FDC command. */
-static void fdc_arm_interrupt(void) {
+/* Clear completion flag before each FDC operation.
+ * CTC Ch.3 is armed once at init and stays armed — do NOT re-arm
+ * per operation (the 0xD7 software reset creates timing windows
+ * where the FDC INTRQ edge is missed). */
+static void fdc_prepare(void) {
     fdc_isr_state.complete = 0;
-#ifdef __SDCC
-    /* Do NOT write vector base — writing 0x08 to Ch.0 port may be
-     * interpreted as a time constant if Ch.0 expects one.
-     * The PROM already set the vector base. */
-    ctc_ch3 = 0xD7;   /* counter mode, interrupt enabled, software reset */
-    ctc_ch3 = 0x01;   /* count 1 trigger */
-#else
-    /* native: ISR is called synchronously by test harness */
-#endif
 }
 
 /* Wait for ISR to set completion flag. */
@@ -120,7 +113,7 @@ static void fdc_wait_complete(void) {
 /* Interrupt-driven seek/recalibrate: arm CTC Ch.3, send command,
  * wait for ISR flag, then mainline does SENSE INTERRUPT. */
 void fdc_recalibrate(floppy_t *fl, byte drive) {
-    fdc_arm_interrupt();
+    fdc_prepare();
     fdc_send_byte(FDC_CMD_RECALIBRATE);
     fdc_send_byte(drive & 0x03);
     fdc_wait_complete();
@@ -132,7 +125,7 @@ void fdc_recalibrate(floppy_t *fl, byte drive) {
 }
 
 void fdc_seek(floppy_t *fl, byte drive, byte cylinder) {
-    fdc_arm_interrupt();
+    fdc_prepare();
     fdc_send_byte(FDC_CMD_SEEK);
     fdc_send_byte(drive & 0x03);
     fdc_send_byte(cylinder);
@@ -177,7 +170,7 @@ int floppy_read_sector(floppy_t *fl, byte drive, byte cylinder, byte head,
     byte cmd = fdf->mf ? FDC_CMD_READ_MFM : FDC_CMD_READ_FM;
     byte hd_sel = (byte)((head << 2) | (drive & 0x03));
 
-    fdc_arm_interrupt();
+    fdc_prepare();
     fdc_send_byte(cmd);
     fdc_send_byte(hd_sel);
     fdc_send_byte(cylinder);
@@ -210,7 +203,7 @@ int floppy_write_sector(floppy_t *fl, byte drive, byte cylinder, byte head,
     byte cmd = fdf->mf ? FDC_CMD_WRITE_MFM : FDC_CMD_WRITE_FM;
     byte hd_sel = (byte)((head << 2) | (drive & 0x03));
 
-    fdc_arm_interrupt();
+    fdc_prepare();
     fdc_send_byte(cmd);
     fdc_send_byte(hd_sel);
     fdc_send_byte(cylinder);

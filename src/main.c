@@ -232,9 +232,15 @@ void bios_boot(void) {
 #ifdef BIOS_WITH_CRT0
     z80_setup_im2();  /* switches to our ISR vectors — ISR must see valid display_buf */
 
-    /* CTC: rely on PROM's initialization.
-     * Ch.2 (display) re-armed by display ISR.
-     * Ch.3 (floppy) armed by fdc_arm_interrupt. */
+    /* Initialize CTC Ch.3 once — counter mode, interrupt enabled, count 1.
+     * Per working BIOS: armed once at init, never re-armed per operation.
+     * Each FDC INTRQ pulse triggers one interrupt automatically. */
+    __asm
+        ld a, #0xD7     ; counter mode, int enabled, rising edge, reset
+        out (0x0F), a   ; CTC Ch.3
+        ld a, #0x01     ; time constant = 1
+        out (0x0F), a
+    __endasm;
 #endif
     hal_ei();
 
@@ -541,9 +547,7 @@ word bios_sectran(word sector, word xlt) {
 void bios_wboot(void) {
     hal_ei();
 
-    /* Reset FDC state — previous operations may have left it dirty */
-    fdc_wait_idle();
-    fdc_specify(0x4F, 0x20);
+    /* Reset floppy state for the new boot */
     floppy_init(&floppy_state);
 
     /* Select drive A */
