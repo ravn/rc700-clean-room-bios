@@ -1,47 +1,38 @@
 # Plan: RC702 Clean Room BIOS Implementation
 
-## Completed Phases
+## Status: CTC Ch.3 interrupt delivery is the last blocker
 
-### Phase 1-4 (DONE)
-Project scaffold, pure logic modules, stateful logic, drivers, Z80 target.
-Full test harness with 16 native tests passing.
+CP/M boots, CCP+BDOS loads correctly, BDOS starts directory reads.
+The FDC interrupt (CTC Ch.3) stops firing after ~12-105 operations,
+hanging the directory read. With debug display overhead (function
+call-based memory writes), CTC works reliably for hundreds of ops.
 
-### Phase 5 — MAME integration (IN PROGRESS)
-14. [x] BIOS boots in MAME, displays signon
-15. [x] Display refresh ISR (fast asm in crt0.asm)
-16. [x] sdcccall(1) calling convention
-17. [x] CCP+BDOS assembled (CCP=0xAA00, BDOS=0xB200)
-18. [x] CCP+BDOS written to track 1 with interleave
-19. [x] Warm boot loads CCP+BDOS (verified byte-perfect via debugger)
-20. [x] Two-phase loader (head 0 + head 1)
-21. [x] hal_in/hal_out fixed (__sfr for FDC/DMA/CTC ports)
-22. [x] Background bitmap stubbed (-DCONSOLE_NO_BGMAP)
-23. [x] FDC interrupt-driven via CTC Ch.3 (ISR wrapper with RETI)
-24. [x] CP/M→sdcccall(1) register wrappers in jump table
-25. [x] sector_shift fix (3→2 for 512B sectors)
-26. [x] **CP/M boots and prints to screen** ("Bdos Err On A: Bad Sector")
-27. [ ] Fix directory read errors (#9) — **next priority**
-28. [ ] CP/M `A>` prompt
-29. [ ] Keyboard input
+## Verified correct:
+- All CP/M ABI return registers (byte in A, word in HL via EX DE,HL)
+- All CP/M ABI input wrappers (C→A, BC→HL)
+- FDC ISR reads exactly 7 result bytes (READ) or 2 (SENSE INT) with RQM polling
+- ISR preserves all registers (AF,HL,DE,BC,IX,IY), uses dedicated stack
+- DPH structure layout matches CP/M 2.2 (16 bytes, correct field order)
+- DPB values match working BIOS (SPT=120, BSH=4, etc.)
+- SECTRAN wrapper has EX DE,HL for word return
+- CCP+BDOS binary verified byte-perfect at entry via debugger dump
+- SPECIFY uses CONFI defaults (0xDF=SRT 3ms, 0x28=HLT 40ms)
+- Display ISR (CTC Ch.2) works throughout, never stops
+- ISR wrappers end with EI+RETI (not RET or RETN)
 
-## Open Issues
+## Open issue: CTC Ch.3 stops firing
+- Works with debug display overhead (~50 function calls per FDC op)
+- Fails without overhead after ~12-105 operations
+- Not timing delays (DJNZ, hal_ei loops don't help)  
+- Not SPECIFY values (CONFI defaults don't help)
+- Not FDC result reading (ISR reads correct bytes with RQM+CB checks)
+- MAME's CTC counter auto-reloads correctly (verified in source)
+- May be MAME Z80 CTC daisy chain emulation artifact
+- The working BIOS avoids this due to different code structure/timing
 
-- #3 8275 CRT parameters differ between PROM and CONFI defaults
-- #4 BIOS too large for 0xDA00 (target ~5.2KB)
-- #5 Automate disk image build
-- #8 ISR stack leak (+2 bytes per FDC ISR, cause unknown)
-- #9 **Directory read fails** — CCP reads directory on track 2+,
-     BDOS reports "Bad Sector". DPB off=2 means directory starts
-     on track 2. FDC reads track 1 (CCP) fine but track 2+ fails.
-     May be sector translation, DPB parameters, or head selection.
-
-## Bugs Found & Fixed This Session
-- hal_in `return 0;` clobbered port read result
-- OUT (C),A / IN A,(C) use B:C — need __sfr for IN A,(n) / OUT (n),A
-- __critical __interrupt generates RETN (wrong), need asm wrapper with RETI
-- ISR without RETI blocks CTC daisy chain
-- sector_shift=3 should be 2 for 512B sectors
-- CP/M register convention (C/BC) vs sdcccall(1) (A/HL) mismatch
-- make-disk.py didn't write CCP+BDOS to track 1
-- CCP+BDOS needed interleave (tran8) on track 1
-- IOBYTE_JOINED hangs on SIO-B serial output
+## Investigate:
+- Ask working BIOS instance if there's any SIO initialization needed
+  to prevent SIO from stealing RETI acknowledgments in daisy chain
+- Check if MAME's CTC interrupt scheduling has known timing issues
+- Consider implementing the BIOS as closer match to working BIOS
+  structure (more code between FDC operations)
