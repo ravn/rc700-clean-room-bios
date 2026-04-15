@@ -295,7 +295,12 @@ void bios_boot(void) {
      * 2. SPECIFY (PROM already did this but be safe)
      * 3. Recalibrate drive 0 */
     fdc_wait_idle();
-    fdc_specify(0x4F, 0x20);  /* SRT=4ms, HUT=240ms, HLT=16ms, DMA mode */
+    /* Use CONFI defaults for FDC SPECIFY timing.
+     * CONFI +0x24: 03 03 DF 28 = cmd, cmd, SRT/HUT, HLT/ND */
+    fdc_specify(
+        confi_defaults[0x26],   /* SRT/HUT = 0xDF: SRT=3ms, HUT=240ms */
+        confi_defaults[0x27]    /* HLT/ND  = 0x28: HLT=40ms, DMA mode */
+    );
 
     /* SENSE DRIVE STATUS to check drive ready */
     fdc_send_byte(0x04);
