@@ -1,11 +1,11 @@
 # Plan: RC702 Clean Room BIOS Implementation
 
-## Status: CTC Ch.3 interrupt delivery is the last blocker
+## Status: PAUSED — specification needs more detail on interrupt architecture
 
-CP/M boots, CCP+BDOS loads correctly, BDOS starts directory reads.
-The FDC interrupt (CTC Ch.3) stops firing after ~12-105 operations,
-hanging the directory read. With debug display overhead (function
-call-based memory writes), CTC works reliably for hundreds of ops.
+CP/M boots partially: signon banner displays, display ISR works at 50Hz,
+FDC initialization begins. The system hangs waiting for the first FDC
+interrupt (CTC Ch.3) to fire after RECALIBRATE. The CTC interrupt never
+triggers, so fdc_wait_complete() spins forever.
 
 ## Verified correct:
 - All CP/M ABI return registers (byte in A, word in HL via EX DE,HL)
@@ -19,20 +19,35 @@ call-based memory writes), CTC works reliably for hundreds of ops.
 - SPECIFY uses CONFI defaults (0xDF=SRT 3ms, 0x28=HLT 40ms)
 - Display ISR (CTC Ch.2) works throughout, never stops
 - ISR wrappers end with EI+RETI (not RET or RETN)
+- DMA Ch.1 programming wrapped with DI/EI (prevents flip-flop corruption)
 
-## Open issue: CTC Ch.3 stops firing
-- Works with debug display overhead (~50 function calls per FDC op)
-- Fails without overhead after ~12-105 operations
-- Not timing delays (DJNZ, hal_ei loops don't help)  
-- Not SPECIFY values (CONFI defaults don't help)
-- Not FDC result reading (ISR reads correct bytes with RQM+CB checks)
-- MAME's CTC counter auto-reloads correctly (verified in source)
-- May be MAME Z80 CTC daisy chain emulation artifact
-- The working BIOS avoids this due to different code structure/timing
+## Blocking issue: CTC Ch.3 interrupt never fires
+- CTC Ch.3 configured: counter mode, int enabled, rising edge, count=1
+- Re-arming added to fdc_prepare() before each FDC command
+- Display ISR works fine (CTC Ch.2) — proves IM2 vector table works
+- FDC ISR wrapper exists in crt0.asm with correct EI+RETI
+- Vector table entry 7 points to what appears to be the C ISR function
+  directly instead of the assembly wrapper — needs investigation
+- ISR complete flag stays at 0 forever
+- Possible causes:
+  - CTC Ch.3 CLK/TRG not connected to FDC INTRQ in MAME
+  - SIO daisy chain interference (uninitialized SIO stealing RETI)
+  - Vector table data not matching crt0.asm source (linker issue?)
+  - CTC re-arming timing wrong (armed too early/late relative to FDC INTRQ)
 
-## Investigate:
-- Ask working BIOS instance if there's any SIO initialization needed
-  to prevent SIO from stealing RETI acknowledgments in daisy chain
-- Check if MAME's CTC interrupt scheduling has known timing issues
-- Consider implementing the BIOS as closer match to working BIOS
-  structure (more code between FDC operations)
+## Key fixes applied this session:
+1. DI/EI around DMA Ch.1 programming in dma_setup() — prevents display ISR 
+   from corrupting flip-flop between two-byte register writes
+2. CTC Ch.3 re-arm in fdc_prepare() before each FDC command
+
+## Next steps (when resuming):
+1. Ask working BIOS instance the 8 open questions in docs/SPECIFICATION_FEEDBACK.md
+2. Investigate vector table mismatch: entry 7 should be _isr_fdc_wrapper (asm)
+   but appears to point to the C function isr_floppy_complete directly
+3. Check if SIO needs initialization to prevent daisy chain interference
+4. Verify CTC Ch.3 CLK/TRG connection in MAME driver source (rc702.cpp)
+5. Once FDC interrupt works, verify full boot to A> prompt and DIR command
+
+## Documentation:
+- docs/SPECIFICATION_FEEDBACK.md — comprehensive feedback for improving the spec
+- docs/ANSWERS.md — answers from working BIOS instance

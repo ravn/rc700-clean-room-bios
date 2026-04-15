@@ -103,6 +103,16 @@ void fdc_wait_idle(void) {
  * the trigger state — only reloads the time constant. */
 static void fdc_prepare(void) {
     fdc_isr_state.complete = 0;
+    /* Re-arm CTC Ch.3 before each FDC operation.
+     * Counter mode, int enabled, rising edge, reset + count=1.
+     * Must be armed before the FDC command so it catches INTRQ. */
+#ifdef __SDCC
+    ctc_ch3 = 0xD7;
+    ctc_ch3 = 0x01;
+#else
+    hal_out(0x0F, 0xD7);
+    hal_out(0x0F, 0x01);
+#endif
 }
 
 /* Wait for ISR to set completion flag.
@@ -137,6 +147,10 @@ void fdc_seek(floppy_t *fl, byte drive, byte cylinder) {
 }
 
 void dma_setup(word addr, word count, byte mode) {
+    /* Disable interrupts during DMA programming.  The display ISR
+       clears the byte-pointer flip-flop (OUT 0xFC) which corrupts
+       two-byte address/count register writes if it fires mid-sequence. */
+    hal_di();
 #ifdef __SDCC
     dma_mask   = 0x05;                /* mask channel 1 */
     dma_mode   = mode;                /* set mode */
@@ -156,6 +170,7 @@ void dma_setup(word addr, word count, byte mode) {
     hal_out(DMA_COUNT1_PORT, (byte)(count >> 8));
     hal_out(DMA_MASK_PORT, 0x01);
 #endif
+    hal_ei();
 }
 
 /* Polling-based READ DATA: send 9 command bytes, DMA runs,

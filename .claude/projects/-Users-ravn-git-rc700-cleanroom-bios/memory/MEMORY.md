@@ -1,0 +1,1 @@
+- [BIOS project status](project_status.md) — paused, CTC Ch.3 interrupt never fires, spec needs ISR detail

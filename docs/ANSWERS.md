@@ -914,3 +914,81 @@ breaks. Try: either fully initialize the SIO with channel resets and proper WR1 
 
 ✻ Cooked for 1m 55s
 
+----
+---                                                                                                                                                     
+1. Yes, the working BIOS clears the flip-flop in the display ISR. It does NOT protect channel 1.
+
+The working BIOS display ISR clears the byte pointer flip-flop (writes to port 0xFC) every single frame, approximately 50 times per second. This is   
+confirmed in both the original assembly BIOS and the C reimplementation.
+
+The key insight is that the display ISR runs with interrupts disabled. It switches to its own stack, does all the DMA programming, and only re-enables  
+interrupts at the very end with EI followed by RETI. Since interrupts are off during the entire DMA programming sequence, the floppy DMA channel 1    
+transfer cannot be initiated or in progress during that window... wait, actually that's not quite right. The DMA transfer runs independently of the CPU
+— it's a hardware transfer between the FDC and memory. The CPU being in DI mode doesn't stop DMA transfers that are already underway.
+
+However, the Am9517A byte pointer flip-flop is specifically for the CPU programming interface — it determines whether the next CPU write to an address  
+or count register goes to the low byte or the high byte. The DMA auto-transfer itself (FDC writing data through channel 1) does NOT use the flip-flop at
+all. The flip-flop only matters when the CPU is reading or writing the address/count registers via the I/O ports.
+
+So: clearing the flip-flop mid-transfer does NOT corrupt an active DMA channel 1 data transfer. The data flowing from the FDC through DMA channel 1 to  
+memory is completely unaffected by the flip-flop state.
+
+The flip-flop only becomes a problem if the CPU is in the middle of a two-byte write to a DMA register (wrote the low byte but not yet the high byte),  
+and the display ISR fires between those two writes and clears the flip-flop. When the CPU returns and writes the "high byte," it would actually write a
+second low byte instead.
+
+2. The working BIOS does NOT mask channel 1 during the display ISR
+
+The display ISR only masks channels 2 and 3 (the display channels) before programming them. Channel 1 (floppy) is not touched at all. The exact sequence
+is: mask channel 2, mask channel 3, clear flip-flop, program channel 2 address and count, program channel 3 count, unmask channel 2, unmask channel 3.
+
+This is safe because the display ISR only writes to channel 2 and channel 3 registers. It never writes to channel 1's address or count registers, so the
+flip-flop state relative to channel 1 programming is irrelevant.
+
+3. Exact sequence of DMA writes in the display ISR
+
+The original assembly BIOS display ISR does the following, in this exact order:
+
+1. Read CRT status register (acknowledges the interrupt)
+2. Write 0x06 to single mask register (0xFA) — masks channel 2
+3. Write 0x07 to single mask register (0xFA) — masks channel 3
+4. Write any value to clear byte pointer register (0xFC) — resets flip-flop
+5. Write low byte of display address to channel 2 address register (0xF4)
+6. Write high byte of display address to channel 2 address register (0xF4)
+7. Write low byte of 1999 to channel 2 count register (0xF5)
+8. Write high byte of 1999 to channel 2 count register (0xF5)
+9. Write 0x00 to channel 3 count register (0xF7) — low byte
+10. Write 0x00 to channel 3 count register (0xF7) — high byte
+11. Write 0x02 to single mask register (0xFA) — unmasks channel 2
+12. Write 0x03 to single mask register (0xFA) — unmasks channel 3
+13. Re-arm CTC channel 2 (write 0xD7 then 0x01)
+14. Timers, RTC, etc.
+
+The C reimplementation does the same thing with the same port writes in the same order.
+
+4. No check for channel 1 activity before programming channel 2
+
+There is no check at all. The display ISR assumes channel 1 is irrelevant and just programs channels 2 and 3. This is correct because programming one   
+channel's address and count registers does not affect another channel's state, as long as the flip-flop is reset before you start your two-byte register
+writes.
+
+The real issue: your DMA channel 1 programming being interrupted
+
+If your problem is that the display ISR's flip-flop clear corrupts floppy DMA, the scenario would be:
+
+Your mainline code is programming DMA channel 1 for a floppy transfer. It writes the low byte of the channel 1 address. Before it writes the high byte,
+the display ISR fires. The ISR clears the flip-flop. The ISR returns. Mainline resumes and writes what it thinks is the high byte of the channel 1    
+address — but the flip-flop was reset, so it actually writes a second low byte. The channel 1 address is now garbage. The FDC tries to DMA to the wrong
+address, and things fall apart.
+
+The working BIOS prevents this by disabling interrupts during ALL DMA programming. Look at the floppy DMA setup: it starts with DI, masks channel 1,    
+sets mode, clears flip-flop, writes address low, writes address high, writes count low, writes count high, unmasks channel 1, then EI. The display ISR
+cannot fire during this window because interrupts are disabled.
+
+If your floppy DMA setup code does NOT disable interrupts around the two-byte address and count writes, the display ISR's flip-flop clear will randomly
+corrupt channel 1 programming — and this would happen intermittently, roughly every time a display refresh coincides with your DMA setup, which at 50Hz
+would happen after roughly 10-20 FDC operations depending on timing. That matches your observation of ~15 operations perfectly.
+
+The fix: wrap your DMA channel 1 programming with DI/EI, exactly as the working BIOS does.                                                              
+   
+
