@@ -115,12 +115,15 @@ _isr_crt_fast:
     push de
     push bc
 
-    ; Mask DMA channels 2 and 3
+    ; Mask DMA channels 2 and 3, then clear flip-flop.
+    ; NOTE: flip-flop clear is global but ch.1 (FDC) should not be
+    ; affected because it's auto-initialized by DMA hardware on each
+    ; DRQ cycle. The flip-flop only affects programmatic port access.
     ld   a, 006H
     out  (0FAH), a          ; mask ch.2
     ld   a, 007H
     out  (0FAH), a          ; mask ch.3
-    out  (0FCH), a          ; clear byte pointer flip-flop (value ignored)
+    out  (0FCH), a          ; clear byte pointer flip-flop
 
     ; Ch2 address = 0xF800 (display buffer)
     ld   a, 000H
